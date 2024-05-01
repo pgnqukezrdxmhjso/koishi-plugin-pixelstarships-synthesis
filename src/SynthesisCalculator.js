@@ -1,62 +1,16 @@
 /**
- @typedef {number} Level
+ * @type {RoleInfoMap}
  */
-/**
- @typedef {string} Id
- */
-
-/**
- * @typedef {Object} SynthesisInfo
- * @property {Id} CharacterDesignId1
- * @property {Id} CharacterDesignId2
- * @property {Id} ToCharacterDesignId
- */
-
-/**
- * @typedef {Object.<Level, Id[]>} LevelIdsMap
- */
-
-/**
- * @typedef {Object} CalculateInfo
- * @property {Id} id
- * @property {SynthesisInfo[]} synthesisList
- */
-
-/**
- * @typedef {Object.<Level,CalculateInfo>} CalculateInfoMap
- */
-
-/**
- * @typedef {Object} Route
- * @property {string} targetName
- * @property {number} routeDepth
- * @property {number} k
- * @property {Route[]} routes
- * @property {Id[]} depleteIds
- * @property {string[]} lackNames
- */
-
-/**
- * @typedef {SynthesisInfo & Route} SynthesisRouteInfo
- */
-
-/**
- * @typedef {Route} BeautifyRouteInfo
- * @property {string} name1
- * @property {string} name2
- * @property {string[]} depleteNames
- */
-
-
-/**/
 const allJson = require('./data/all.json');
-const levelJson = require('./data/level.json');
 /**
  *
- * @type {Object.<Id,SynthesisInfo[]>}
+ * @type {LeveInfoMap}
+ */
+const levelJson = require('./data/level.json');
+/**
+ * @type {SynthesisInfoMap}
  */
 const synthesisJson = require('./data/synthesis.json');
-
 const SynthesisCalculator = {
   /**
    *
@@ -115,7 +69,7 @@ const SynthesisCalculator = {
         break;
       }
       const nextCalculateInfoMap = {};
-      nextIds.forEach((id: string) => {
+      nextIds.forEach((id) => {
         const synthesisList = synthesisJson[id];
         if (!synthesisList) {
           return;
@@ -169,7 +123,7 @@ const SynthesisCalculator = {
    * @param {any[]} rms
    */
   arrayRm(array, rms) {
-    rms.forEach(item => {
+    rms?.forEach(item => {
       const pi = array.indexOf(item);
       if (pi > -1) {
         array.splice(pi, 1);
@@ -178,7 +132,7 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {Route[]} list
+   * @param {SynthesisRouteInfo[]} list
    */
   prioritySort(list) {
     list.sort((a, b) => {
@@ -199,55 +153,41 @@ const SynthesisCalculator = {
    * @param {SynthesisInfo} synthesisInfo
    * @param {Id[]} materialIds
    * @param {number} [nextIndex=1]
-   * @returns {Route}
+   * @returns {SynthesisRouteInfo}
    */
   calculateSynthesisRoute({possibilitySynthesisLinks, synthesisInfo, materialIds, nextIndex = 1}) {
     const id1 = synthesisInfo['CharacterDesignId1'];
     const id2 = synthesisInfo['CharacterDesignId2'];
-    let route1 = {
-      targetName: allJson[id1]?.name,
-      routeDepth: 0,
-      k: 0,
-      routes: null,
-      lackNames: null,
-    };
-    let route2 = {
-      targetName: allJson[id2]?.name,
-      routeDepth: 0,
-      k: 0,
-      routes: null,
-      lackNames: null,
-    };
+
     let depleteIds = [];
     let exist1 = false;
     let exist2 = false;
     if (materialIds.includes(id1)) {
       materialIds.splice(materialIds.indexOf(id1), 1);
       depleteIds.push(id1);
-      route1.k = 1;
       exist1 = true;
     }
     if (materialIds.includes(id2)) {
       materialIds.splice(materialIds.indexOf(id2), 1);
       depleteIds.push(id2);
-      route2.k = 1;
       exist2 = true;
     }
 
     const allRoutes = [];
-    const nextCalculateInfoMap = possibilitySynthesisLinks[nextIndex] || [];
+    const nextCalculateInfoMap = possibilitySynthesisLinks[nextIndex] || {};
     const synthesisList1 = nextCalculateInfoMap[id1]?.synthesisList || [false];
     const synthesisList2 = nextCalculateInfoMap[id2]?.synthesisList || [false];
     synthesisList1.forEach(item1 => {
       synthesisList2.forEach(item2 => {
-        let r1 = {...route1};
-        let r2 = {...route2};
-        let lackNames = [];
+        let r1 = {routeDepth: 0};
+        let lackIds = [];
         const mIds = [...materialIds];
         let dIds = [...depleteIds];
         let k = 0;
         if (exist1) {
           k++;
+          r1.k = 1;
+          r1.exist = true;
         } else if (item1) {
           const res = this.calculateSynthesisRoute({
             possibilitySynthesisLinks,
@@ -255,22 +195,25 @@ const SynthesisCalculator = {
             materialIds: mIds,
             nextIndex: nextIndex + 1
           });
-          k += res.k / 2;
           this.arrayRm(mIds, res.depleteIds);
-          dIds = [...dIds, ...res.depleteIds]
-          r1 = {
-            ...r1,
-            k: res.k / 2,
-            routes: res.routes,
-            routeDepth: res.routeDepth + 1,
-            lackNames: res.lackNames,
-          };
+          dIds.push(...res.depleteIds)
+          if (r1.lackIds) {
+            lackIds.push(...r1.lackIds);
+          }
+
+          r1 = res;
+          r1.k = res.k / 2;
+          r1.routeDepth = res.routeDepth + 1;
+          k += r1.k;
         } else {
-          lackNames.push(r1.targetName);
+          lackIds.push(id1);
         }
 
+        let r2 = {routeDepth: 0};
         if (exist2) {
           k++;
+          r2.k = 1;
+          r2.exist = true;
         } else if (item2) {
           const res = this.calculateSynthesisRoute({
             possibilitySynthesisLinks,
@@ -278,18 +221,18 @@ const SynthesisCalculator = {
             materialIds: mIds,
             nextIndex: nextIndex + 1
           });
-          k += res.k / 2;
           this.arrayRm(mIds, res.depleteIds);
-          dIds = [...dIds, ...res.depleteIds]
-          r2 = {
-            ...r2,
-            k: res.k / 2,
-            routes: res.routes,
-            routeDepth: res.routeDepth + 1,
-            lackNames: res.lackNames,
+          dIds.push(...res.depleteIds)
+          if (r2.lackIds) {
+            lackIds.push(...r2.lackIds);
           }
+
+          r2 = res;
+          r2.k = res.k / 2;
+          r2.routeDepth = res.routeDepth + 1;
+          k += r2.k;
         } else {
-          lackNames.push(r2.targetName);
+          lackIds.push(id2);
         }
 
         allRoutes.push({
@@ -297,31 +240,44 @@ const SynthesisCalculator = {
           routes: [r1, r2],
           routeDepth: Math.max(r1.routeDepth, r2.routeDepth),
           depleteIds: dIds,
-          lackNames: [...lackNames, ...(r1.lackNames || []), ...(r2.lackNames || [])],
+          lackIds,
         })
       })
     });
     this.prioritySort(allRoutes);
-    return allRoutes[0] || {
-      k: 0, routes: [], routeDepth: 0, depleteIds: []
+
+    /**
+     * @type {SynthesisRouteInfo}
+     */
+    let route = allRoutes[0];
+    if (!route) {
+      route = {
+        k: 0, routeDepth: 0, routes: [], depleteIds: []
+      };
     }
+    return route;
   },
   /**
    *
-   * @param {SynthesisInfo[]} targetSynthesisList
-   * @returns {BeautifyRouteInfo[]}
+   * @param {SynthesisRouteInfo} synthesisRouteInfo
+   * @returns {BeautifySynthesisRouteInfo}
    */
-  beautifySynthesisRoutes(targetSynthesisList) {
-    const beautify = JSON.parse(JSON.stringify(targetSynthesisList));
-    beautify.forEach(item => {
-      item.name1 = allJson[item['CharacterDesignId1']]?.name;
-      item.name2 = allJson[item['CharacterDesignId2']]?.name;
-      item.depleteNames = item.depleteIds.map(id => allJson[id]?.name);
-      delete item['ToCharacterDesignId'];
-      delete item['CharacterDesignId1'];
-      delete item['CharacterDesignId2'];
-    });
-    return beautify;
+  beautifySynthesisRouteInfo(synthesisRouteInfo) {
+    const bItem = JSON.parse(JSON.stringify(synthesisRouteInfo));
+    bItem.targetName = allJson[synthesisRouteInfo.ToCharacterDesignId]?.name;
+    bItem.name1 = allJson[synthesisRouteInfo.CharacterDesignId1]?.name;
+    bItem.name2 = allJson[synthesisRouteInfo.CharacterDesignId2]?.name;
+    bItem.depleteNames = synthesisRouteInfo.depleteIds?.map(id => allJson[id]?.name);
+    bItem.lackNames = synthesisRouteInfo.lackIds?.map(id => allJson[id]?.name);
+    return bItem;
+  },
+  /**
+   *
+   * @param {SynthesisRouteInfo[]} synthesisRouteInfos
+   * @returns {BeautifySynthesisRouteInfo[]}
+   */
+  beautifySynthesisRouteInfos(synthesisRouteInfos) {
+    return synthesisRouteInfos.map(item => this.beautifySynthesisRouteInfo(item));
   },
   /**
    *
@@ -372,13 +328,13 @@ const SynthesisCalculator = {
       showMax = 30;
     }
     let contents = [];
-    const beautifySynthesisRoutes = this.beautifySynthesisRoutes(synthesisRoutes);
-    for (let i = 0; i < beautifySynthesisRoutes.length && i < showMax; i++) {
-      const item = beautifySynthesisRoutes[i];
-      contents.push(`${item.name1} x ${item.name2};  ${item.depleteNames.join(', ')};  ${item.lackNames.join(', ')}`)
+    const beautifySynthesisRouteInfos = this.beautifySynthesisRouteInfos(synthesisRoutes);
+    for (let i = 0; i < beautifySynthesisRouteInfos.length && i < showMax; i++) {
+      const item = beautifySynthesisRouteInfos[i];
+      contents.push(`route: ${item.name1} x ${item.name2};\n    consume: ${item.depleteNames.join(', ')};  lack: ${item.lackNames.join(', ')}`)
     }
     return contents.join('\n');
   }
 }
 
-export default SynthesisCalculator;
+module.exports = SynthesisCalculator;
