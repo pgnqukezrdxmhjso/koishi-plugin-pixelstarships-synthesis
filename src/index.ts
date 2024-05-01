@@ -1,5 +1,5 @@
 import {Context, Schema} from 'koishi'
-import SynthesisCalculator from './SynthesisCalculator.js'
+import SynthesisCalculator from './SynthesisCalculator'
 
 export const name = 'pixelstarships-synthesis'
 
