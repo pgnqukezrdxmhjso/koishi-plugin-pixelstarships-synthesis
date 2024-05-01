@@ -2,6 +2,14 @@
   "name": "koishi-plugin-pixelstarships-synthesis",
   "description": "pixelstarships synthesis calculator",
   "version": "0.0.1",
+  "contributors": [
+    "gwcoinpdvtqsrajh"
+  ],
+  "homepage": "https://github.com/gwcoinpdvtqsrajh/koishi-plugin-pixelstarships-synthesis",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gwcoinpdvtqsrajh/koishi-plugin-pixelstarships-synthesis.git"
+  },
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -9,13 +17,14 @@
     "dist"
   ],
   "license": "MIT",
-  "scripts": {},
   "keywords": [
     "chatbot",
     "koishi",
-    "plugin"
+    "plugin",
+    "game",
+    "pixelstarships",
+    "synthesis calculator"
   ],
-  "devDependencies": {},
   "peerDependencies": {
     "koishi": "^4.17.5"
   }
