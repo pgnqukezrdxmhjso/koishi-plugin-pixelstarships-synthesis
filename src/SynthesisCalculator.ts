@@ -115,7 +115,7 @@ const SynthesisCalculator = {
         break;
       }
       const nextCalculateInfoMap = {};
-      nextIds.forEach((id) => {
+      nextIds.forEach((id: string) => {
         const synthesisList = synthesisJson[id];
         if (!synthesisList) {
           return;
@@ -207,10 +207,16 @@ const SynthesisCalculator = {
     let route1 = {
       targetName: allJson[id1]?.name,
       routeDepth: 0,
+      k: 0,
+      routes: null,
+      lackNames: null,
     };
     let route2 = {
       targetName: allJson[id2]?.name,
       routeDepth: 0,
+      k: 0,
+      routes: null,
+      lackNames: null,
     };
     let depleteIds = [];
     let exist1 = false;
