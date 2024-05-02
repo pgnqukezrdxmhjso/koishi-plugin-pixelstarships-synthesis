@@ -1,14 +1,14 @@
 {
   "name": "koishi-plugin-pixelstarships-synthesis",
   "description": "pixelstarships synthesis calculator",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "contributors": [
-    "gwcoinpdvtqsrajh"
+    "pgnqukezrdxmhjso"
   ],
-  "homepage": "https://github.com/gwcoinpdvtqsrajh/koishi-plugin-pixelstarships-synthesis",
+  "homepage": "https://github.com/pgnqukezrdxmhjso/koishi-plugin-pixelstarships-synthesis",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gwcoinpdvtqsrajh/koishi-plugin-pixelstarships-synthesis.git"
+    "url": "https://github.com/pgnqukezrdxmhjso/koishi-plugin-pixelstarships-synthesis"
   },
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
