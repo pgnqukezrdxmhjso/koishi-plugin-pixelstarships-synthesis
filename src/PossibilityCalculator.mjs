@@ -1,16 +1,31 @@
-/**/
-const allJson = require('./data/all.json');
+import Tinypool from 'tinypool';
+import SynthesisCalculator from "./SynthesisCalculator.mjs";
+import {createRequire} from 'node:module';
+
+const require = createRequire(import.meta.url);
+/**
+ * @type {RoleInfoMap}
+ */
+const allJson = require("./data/all.json");
 /**
  * @type {LeveInfoMap}
  */
-const levelJson = require('./data/level.json');
+const levelJson = require("./data/level.json");
 /**
  * @type {SynthesisInfoMap}
  */
-const synthesisJson = require('./data/synthesis.json');
-const SynthesisCalculator = require("./SynthesisCalculator");
+const synthesisJson = require("./data/synthesis.json");
 
 const PossibilityCalculator = {
+  tinypool: null,
+  getTinypool() {
+    if (!PossibilityCalculator.tinypool) {
+      PossibilityCalculator.tinypool = new Tinypool({
+        filename: new URL('./PossibilityCalculator.mjs', import.meta.url).href
+      });
+    }
+    return PossibilityCalculator.tinypool;
+  },
   /**
    *
    * @param {string[]} names
@@ -21,7 +36,13 @@ const PossibilityCalculator = {
     for (let id in allJson) {
       nameMap[allJson[id].name] = allJson[id];
     }
-    return names.map(name => nameMap[name].id);
+    const ids = [];
+    names.forEach(name => {
+      if (nameMap[name]) {
+        ids.push(nameMap[name].id)
+      }
+    });
+    return ids;
   },
   /**
    *
@@ -30,18 +51,17 @@ const PossibilityCalculator = {
   synthesisJsonToBackwards() {
     const synthesisMap = {};
     for (let id in synthesisJson) {
-      synthesisJson[id].forEach((item) => {
-        const id1 = item.CharacterDesignId1;
-        const id2 = item.CharacterDesignId2;
-        const toId = item.ToCharacterDesignId;
+      synthesisJson[id].forEach(synthesisInfo => {
+        const id1 = synthesisInfo.CharacterDesignId1;
+        const id2 = synthesisInfo.CharacterDesignId2;
         if (!synthesisMap[id1]) {
           synthesisMap[id1] = {};
         }
         if (!synthesisMap[id2]) {
           synthesisMap[id2] = {};
         }
-        synthesisMap[id1][id2] = toId;
-        synthesisMap[id2][id1] = toId;
+        synthesisMap[id1][id2] = synthesisInfo;
+        synthesisMap[id2][id1] = synthesisInfo;
       })
     }
     return synthesisMap;
@@ -55,9 +75,9 @@ const PossibilityCalculator = {
   filterPossessLeveInfoMap({materialIds = [], level}) {
     const levelInfos = levelJson[level];
     const possessLeveInfoMap = {};
-    levelInfos.forEach(item => {
-      if (materialIds.includes(item.id)) {
-        possessLeveInfoMap[item.id] = item;
+    levelInfos.forEach(levelInfo => {
+      if (materialIds.includes(levelInfo.id)) {
+        possessLeveInfoMap[levelInfo.id] = levelInfo;
       }
     });
     return possessLeveInfoMap;
@@ -67,7 +87,7 @@ const PossibilityCalculator = {
    * @param {Id[]} materialIds
    * @param {SynthesisInfoBackwardsMap} synthesisInfoBackwardsMap
    * @param {Level} maxLevel
-   * @returns {AllLevelSynthesisRoutes}
+   * @returns {LevelSynthesisInfosMap}
    */
   allRoute({materialIds, synthesisInfoBackwardsMap, maxLevel}) {
     /**
@@ -75,53 +95,45 @@ const PossibilityCalculator = {
      */
     materialIds = [...materialIds]
     /**
-     * @type {Object.<Level,Object.<Id,SynthesisInfo[]>>}
+     * @type {LevelSynthesisInfosMap}
      */
-    const possessLevelSynthesisInfoMap = {};
+    const possessLevelSynthesisInfosMap = {};
 
     let levelIndex = 1;
     while (levelIndex < maxLevel) {
       let nextLevel = levelIndex;
-      ++nextLevel === 6 && nextLevel++;
+      nextLevel += nextLevel === 5 ? 2 : 1;
 
-      const possessLeveInfoMap = this.filterPossessLeveInfoMap({
+      const possessLeveInfoMap = PossibilityCalculator.filterPossessLeveInfoMap({
         materialIds,
         level: levelIndex
       });
-      possessLevelSynthesisInfoMap[nextLevel] = {};
-      const possessSynthesisInfo = possessLevelSynthesisInfoMap[nextLevel];
-      /**
-       * @type {Set<Id>}
-       */
-      const nextLevelIdSet = new Set();
-      for (let id in possessLeveInfoMap) {
-        let synthesisInfoMap = synthesisInfoBackwardsMap[id];
-        for (let sId in synthesisInfoMap) {
-          if (!possessLeveInfoMap[sId]) {
+      possessLevelSynthesisInfosMap[nextLevel] = {};
+      const possessSynthesisInfosMap = possessLevelSynthesisInfosMap[nextLevel];
+      for (let id1 in possessLeveInfoMap) {
+        let synthesisInfoMap = synthesisInfoBackwardsMap[id1];
+        for (let id2 in possessLeveInfoMap) {
+          const synthesisInfo = synthesisInfoMap[id2];
+          if (!synthesisInfo) {
             continue;
           }
-          const tId = synthesisInfoMap[sId];
-          nextLevelIdSet.add(synthesisInfoMap[sId]);
-          if (!possessSynthesisInfo[tId]) {
-            possessSynthesisInfo[tId] = [];
+          const tId = synthesisInfo.ToCharacterDesignId;
+          if (!possessSynthesisInfosMap[tId]) {
+            possessSynthesisInfosMap[tId] = [];
+          } else if (possessSynthesisInfosMap[tId].includes(synthesisInfo)) {
+            continue;
           }
-          possessSynthesisInfo[tId].push({
-            CharacterDesignId1: id,
-            CharacterDesignId2: sId,
-            ToCharacterDesignId: tId,
-          })
+          materialIds.push(tId);
+          possessSynthesisInfosMap[tId].push(synthesisInfo)
         }
-      }
-      for (let id of nextLevelIdSet.values()) {
-        materialIds.push(id);
       }
       levelIndex = nextLevel;
     }
-    return possessLevelSynthesisInfoMap;
+    return possessLevelSynthesisInfosMap;
   },
   /**
    *
-   * @param {AllLevelSynthesisRoutes} allRoutes
+   * @param {LevelSynthesisInfosMap} allRoutes
    * @param {SynthesisInfo} synthesisInfo
    * @param {Id[]} materialIds
    * @param {Level} nextLevel
@@ -158,7 +170,7 @@ const PossibilityCalculator = {
           r1.k = 1;
           r1.exist = true;
         } else if (item1) {
-          const res = this.calculateSynthesisRoute({
+          const res = PossibilityCalculator.calculateSynthesisRoute({
             allRoutes,
             synthesisInfo: item1,
             materialIds: mIds,
@@ -178,7 +190,7 @@ const PossibilityCalculator = {
           r2.k = 1;
           r2.exist = true;
         } else if (item2) {
-          const res = this.calculateSynthesisRoute({
+          const res = PossibilityCalculator.calculateSynthesisRoute({
             allRoutes,
             synthesisInfo: item2,
             materialIds: mIds,
@@ -190,6 +202,10 @@ const PossibilityCalculator = {
           r2 = res;
           r2.k = res.k / 2;
           r2.routeDepth = res.routeDepth + 1;
+        }
+
+        if (k < 2) {
+          return;
         }
 
         calculateRoutes.push({
@@ -205,30 +221,15 @@ const PossibilityCalculator = {
      * @type {SynthesisRouteInfo}
      */
     let route = calculateRoutes[0];
-    if (!route || route.k < 2) {
+    if (!route) {
       route = {
         k: 0, routeDepth: 0, depleteIds: []
       };
     }
 
-    route.CharacterDesignId1 = synthesisInfo.CharacterDesignId1;
-    route.CharacterDesignId2 = synthesisInfo.CharacterDesignId2;
-    route.ToCharacterDesignId = synthesisInfo.ToCharacterDesignId;
+    route.synthesisInfo = synthesisInfo;
 
     return route;
-  },
-  /**
-   *
-   * @param {Level} level
-   * @return {Level}
-   */
-  verifyLevel(level) {
-    if (level > 7) {
-      level = 7;
-    } else if (level === 6) {
-      level = 5;
-    }
-    return level
   },
   /**
    *
@@ -236,63 +237,54 @@ const PossibilityCalculator = {
    * @param {Level} targetLevel
    * @returns {LevelSynthesisRouteInfos}
    */
-  calculate({materialNames, targetLevel = 7}) {
-    targetLevel = this.verifyLevel(targetLevel);
+  async calculate({materialNames, targetLevel = 7}) {
+    targetLevel = SynthesisCalculator.verifyLevel(targetLevel);
     const computeLevel = targetLevel === 7 ? 5 : targetLevel - 1;
-    const materialIds = this.namesToIds(materialNames);
-    const synthesisInfoBackwardsMap = this.synthesisJsonToBackwards();
-    const allRoutes = this.allRoute({
+    const materialIds = PossibilityCalculator.namesToIds(materialNames);
+    const synthesisInfoBackwardsMap = PossibilityCalculator.synthesisJsonToBackwards();
+    const allRoutes = PossibilityCalculator.allRoute({
       materialIds, synthesisInfoBackwardsMap, maxLevel: computeLevel
     });
 
     const targetLevelInfos = levelJson[targetLevel];
     const targetLevelSynthesisRouteInfos = {};
+    const taskList = [];
     for (let i = 0; i < targetLevelInfos.length; i++) {
       const levelInfo = targetLevelInfos[i];
       const synthesisInfos = synthesisJson[levelInfo.id] || [];
       const synthesisRoutes = [];
-      synthesisInfos.forEach(synthesisInfo => {
-        const res = this.calculateSynthesisRoute({
-          allRoutes,
-          synthesisInfo,
-          materialIds: [...materialIds],
-          nextLevel: computeLevel
-        });
-        if (res.k < 2) {
-          return;
-        }
-        synthesisRoutes.push(res);
-      });
-      SynthesisCalculator.prioritySort(synthesisRoutes);
       targetLevelSynthesisRouteInfos[levelInfo.id] = synthesisRoutes;
+      for (const synthesisInfo of synthesisInfos) {
+        taskList.push(new Promise(async (resolve, reject) => {
+          const res = await PossibilityCalculator.getTinypool().run({
+            allRoutes,
+            synthesisInfo,
+            materialIds: [...materialIds],
+            nextLevel: computeLevel
+          }, {name: 'calculateSynthesisRoute'});
+          if (res.k >= 2) {
+            synthesisRoutes.push(res);
+          }
+          resolve();
+        }));
+        // const res = PossibilityCalculator.calculateSynthesisRoute({
+        //   allRoutes,
+        //   synthesisInfo,
+        //   materialIds: [...materialIds],
+        //   nextLevel: computeLevel
+        // });
+        // if (res.k < 2) {
+        //   return;
+        // }
+        // synthesisRoutes.push(res);
+      }
     }
-    return targetLevelSynthesisRouteInfos;
-  },
-  /**
-   *
-   * @param {SynthesisRouteInfo} synthesisRouteInfo
-   * @param {Level} level
-   */
-  formatSynthesisRouteInfo({synthesisRouteInfo, level}) {
-    const nextLevel = this.verifyLevel(level) - 1;
-    let beautifyInfo = SynthesisCalculator.beautifySynthesisRouteInfo(synthesisRouteInfo);
-    let routes = synthesisRouteInfo.routes || [];
-    let content = "";
-    content += beautifyInfo.name1;
-    if (routes[0] && !routes[0].exist) {
-      content += `(${nextLevel}`;
-      content += this.formatSynthesisRouteInfo({synthesisRouteInfo: routes[0], level: nextLevel});
-      content += `${nextLevel})`;
-    }
-    content += ' x '
-    content += beautifyInfo.name2;
-    if (routes[1] && !routes[1].exist) {
-      content += `(${nextLevel}`;
-      content += this.formatSynthesisRouteInfo({synthesisRouteInfo: routes[1], level: nextLevel});
-      content += `${nextLevel})`;
+    await Promise.all(taskList)
+    for (let level in targetLevelSynthesisRouteInfos) {
+      SynthesisCalculator.prioritySort(targetLevelSynthesisRouteInfos[level]);
     }
 
-    return content;
+    return targetLevelSynthesisRouteInfos;
   },
   /**
    *
@@ -302,14 +294,14 @@ const PossibilityCalculator = {
    * @returns {string}
    */
   format({levelSynthesisRouteInfos, showMax = 3, level = 7}) {
-    level = this.verifyLevel(level);
+    level = SynthesisCalculator.verifyLevel(level) - 1;
     if (!levelSynthesisRouteInfos || levelSynthesisRouteInfos.length < 1) {
       return "no result";
     }
     if (showMax > 6) {
       showMax = 6;
     }
-    let content = "";
+    let content = '';
     for (let id in levelSynthesisRouteInfos) {
       let synthesisRouteInfos = levelSynthesisRouteInfos[id];
       if (synthesisRouteInfos.length < 1) {
@@ -318,7 +310,12 @@ const PossibilityCalculator = {
       content += `target: ${allJson[id]?.name};\n`
       for (let i = 0; i < synthesisRouteInfos.length && i < showMax; i++) {
         const item = synthesisRouteInfos[i];
-        content += `    route: ${this.formatSynthesisRouteInfo({synthesisRouteInfo: item, level: level - 1})};\n`;
+        content += `    route: `;
+        content += SynthesisCalculator.formatSynthesisRouteInfo({
+          synthesisRouteInfo: item,
+          level
+        })
+        content += ";\n";
       }
     }
     if (content.trim().length < 1) {
@@ -328,4 +325,5 @@ const PossibilityCalculator = {
   }
 }
 
-module.exports = PossibilityCalculator;
+export default PossibilityCalculator;
+export const calculateSynthesisRoute = PossibilityCalculator.calculateSynthesisRoute

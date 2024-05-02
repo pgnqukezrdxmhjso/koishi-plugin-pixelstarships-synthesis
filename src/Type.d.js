@@ -15,7 +15,7 @@
  * @property {Object} bigImg
  */
 /**
- * @typedef {Object.<Id,RoleInfo>} RoleInfoMap
+ * @typedef {Object.<Id, RoleInfo>} RoleInfoMap
  */
 
 
@@ -27,7 +27,7 @@
  * @property {Level} Rarity
  */
 /**
- @typedef {Object.<Id,LeveInfo[]>} LeveInfoMap
+ @typedef {Object.<Id, LeveInfo[]>} LeveInfoMap
  */
 
 /**
@@ -38,7 +38,7 @@
  * @property {Id} ToCharacterDesignId
  */
 /**
- @typedef {Object.<Id,SynthesisInfo[]>} SynthesisInfoMap
+ @typedef {Object.<Id, SynthesisInfo[]>} SynthesisInfoMap
  */
 
 
@@ -53,7 +53,7 @@
  */
 
 /**
- * @typedef {Object.<Level,CalculateInfo>} CalculateInfoMap
+ * @typedef {Object.<Level, CalculateInfo>} CalculateInfoMap
  */
 
 
@@ -65,9 +65,7 @@
  * @property {number} routeDepth
  * @property {Id[]} [depleteIds]
  * @property {Id[]} [lackIds]
- * @property {Id} [CharacterDesignId1]
- * @property {Id} [CharacterDesignId2]
- * @property {Id} [ToCharacterDesignId]
+ * @property {SynthesisInfo} [synthesisInfo]
  */
 
 /**
@@ -80,14 +78,14 @@
  */
 
 /**
- @typedef {Object.<Id,Object.<Id,Id>>} SynthesisInfoBackwardsMap
+ @typedef {Object.<Id, Object.<Id, SynthesisInfo>>} SynthesisInfoBackwardsMap
  */
 
 /**
- @typedef {Object<Level, Object<Id, SynthesisInfo[]>>} AllLevelSynthesisRoutes
+ @typedef {Object.<Level, Object.<Id, SynthesisInfo[]>>} LevelSynthesisInfosMap
  */
 
 /**
- @typedef {Object<Id, SynthesisRouteInfo[]>} LevelSynthesisRouteInfos
+ @typedef {Object.<Id, SynthesisRouteInfo[]>} LevelSynthesisRouteInfos
  */
 

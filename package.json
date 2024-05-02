@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pixelstarships-synthesis",
   "description": "pixelstarships synthesis calculator",
-  "version": "0.0.11",
+  "version": "0.0.26",
   "contributors": [
     "gwcoinpdvtqsrajh"
   ],
@@ -27,5 +27,8 @@
   ],
   "peerDependencies": {
     "koishi": "^4.17.5"
+  },
+  "dependencies": {
+    "tinypool": "^0.8.4"
   }
 }

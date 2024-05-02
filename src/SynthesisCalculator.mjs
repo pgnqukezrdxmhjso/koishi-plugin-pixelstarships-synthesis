@@ -1,17 +1,30 @@
+import Tinypool from "tinypool";
+import {createRequire} from 'node:module';
+
+const require = createRequire(import.meta.url);
 /**
  * @type {RoleInfoMap}
  */
-const allJson = require('./data/all.json');
+const allJson = require("./data/all.json");
 /**
- *
  * @type {LeveInfoMap}
  */
-const levelJson = require('./data/level.json');
+const levelJson = require("./data/level.json");
 /**
  * @type {SynthesisInfoMap}
  */
-const synthesisJson = require('./data/synthesis.json');
+const synthesisJson = require("./data/synthesis.json");
+
 const SynthesisCalculator = {
+  tinypool: null,
+  getTinypool() {
+    if (!SynthesisCalculator.tinypool) {
+      SynthesisCalculator.tinypool = new Tinypool({
+        filename: new URL('./SynthesisCalculator.mjs', import.meta.url).href
+      });
+    }
+    return SynthesisCalculator.tinypool;
+  },
   /**
    *
    * @param {string} targetName
@@ -22,7 +35,6 @@ const SynthesisCalculator = {
     let targetId;
     const levelIdsMap = {}
     let materialIds = []
-
     for (let level in levelJson) {
       levelIdsMap[level] = []
       for (const item of levelJson[level]) {
@@ -144,6 +156,9 @@ const SynthesisCalculator = {
       if (diff !== 0) {
         return diff;
       }
+      if (b.lackIds && a.lackIds) {
+        return a.lackIds.length - b.lackIds.length;
+      }
       return b.depleteIds.length - a.depleteIds.length;
     })
   },
@@ -179,57 +194,63 @@ const SynthesisCalculator = {
     const synthesisList2 = nextCalculateInfoMap[id2]?.synthesisList || [false];
     synthesisList1.forEach(item1 => {
       synthesisList2.forEach(item2 => {
-        let r1 = {routeDepth: 0};
+        let r1;
         let lackIds = [];
         const mIds = [...materialIds];
         let dIds = [...depleteIds];
         let k = 0;
         if (exist1) {
           k++;
-          r1.k = 1;
-          r1.exist = true;
+          r1 = {
+            k: 1,
+            exist: true,
+            routeDepth: 0
+          }
         } else if (item1) {
-          const res = this.calculateSynthesisRoute({
+          const res = SynthesisCalculator.calculateSynthesisRoute({
             possibilitySynthesisLinks,
             synthesisInfo: item1,
             materialIds: mIds,
             nextIndex: nextIndex + 1
           });
-          this.arrayRm(mIds, res.depleteIds);
+          SynthesisCalculator.arrayRm(mIds, res.depleteIds);
           dIds.push(...res.depleteIds)
+          r1 = res;
+          r1.k = res.k / 2;
+          r1.routeDepth = res.routeDepth + 1;
           if (r1.lackIds) {
             lackIds.push(...r1.lackIds);
           }
 
-          r1 = res;
-          r1.k = res.k / 2;
-          r1.routeDepth = res.routeDepth + 1;
           k += r1.k;
         } else {
           lackIds.push(id1);
         }
 
-        let r2 = {routeDepth: 0};
+        let r2;
         if (exist2) {
           k++;
-          r2.k = 1;
-          r2.exist = true;
+          r2 = {
+            k: 1,
+            exist: true,
+            routeDepth: 0
+          }
         } else if (item2) {
-          const res = this.calculateSynthesisRoute({
+          const res = SynthesisCalculator.calculateSynthesisRoute({
             possibilitySynthesisLinks,
             synthesisInfo: item2,
             materialIds: mIds,
             nextIndex: nextIndex + 1
           });
-          this.arrayRm(mIds, res.depleteIds);
+          SynthesisCalculator.arrayRm(mIds, res.depleteIds);
           dIds.push(...res.depleteIds)
+          r2 = res;
+          r2.k = res.k / 2;
+          r2.routeDepth = res.routeDepth + 1;
           if (r2.lackIds) {
             lackIds.push(...r2.lackIds);
           }
 
-          r2 = res;
-          r2.k = res.k / 2;
-          r2.routeDepth = res.routeDepth + 1;
           k += r2.k;
         } else {
           lackIds.push(id2);
@@ -238,13 +259,13 @@ const SynthesisCalculator = {
         allRoutes.push({
           k,
           routes: [r1, r2],
-          routeDepth: Math.max(r1.routeDepth, r2.routeDepth),
+          routeDepth: Math.max(r1?.routeDepth, r2?.routeDepth),
           depleteIds: dIds,
           lackIds,
         })
       })
     });
-    this.prioritySort(allRoutes);
+    SynthesisCalculator.prioritySort(allRoutes);
 
     /**
      * @type {SynthesisRouteInfo}
@@ -255,29 +276,8 @@ const SynthesisCalculator = {
         k: 0, routeDepth: 0, routes: [], depleteIds: []
       };
     }
+    route.synthesisInfo = synthesisInfo;
     return route;
-  },
-  /**
-   *
-   * @param {SynthesisRouteInfo} synthesisRouteInfo
-   * @returns {BeautifySynthesisRouteInfo}
-   */
-  beautifySynthesisRouteInfo(synthesisRouteInfo) {
-    const bItem = JSON.parse(JSON.stringify(synthesisRouteInfo));
-    bItem.targetName = allJson[synthesisRouteInfo.ToCharacterDesignId]?.name;
-    bItem.name1 = allJson[synthesisRouteInfo.CharacterDesignId1]?.name;
-    bItem.name2 = allJson[synthesisRouteInfo.CharacterDesignId2]?.name;
-    bItem.depleteNames = synthesisRouteInfo.depleteIds?.map(id => allJson[id]?.name);
-    bItem.lackNames = synthesisRouteInfo.lackIds?.map(id => allJson[id]?.name);
-    return bItem;
-  },
-  /**
-   *
-   * @param {SynthesisRouteInfo[]} synthesisRouteInfos
-   * @returns {BeautifySynthesisRouteInfo[]}
-   */
-  beautifySynthesisRouteInfos(synthesisRouteInfos) {
-    return synthesisRouteInfos.map(item => this.beautifySynthesisRouteInfo(item));
   },
   /**
    *
@@ -286,55 +286,131 @@ const SynthesisCalculator = {
    * @param {Level} minimumLevel
    * @returns {null|SynthesisRouteInfo[]}
    */
-  calculate({targetName, materialNames = [], minimumLevel = 3}) {
-    const {levelIdsMap, targetId, materialIds} = this.handleLevelJson({targetName, materialNames})
-
+  async calculate({targetName, materialNames = [], minimumLevel = 3}) {
+    const {levelIdsMap, targetId, materialIds} = SynthesisCalculator.handleLevelJson({targetName, materialNames})
     const targetSynthesisList = synthesisJson[targetId];
     if (!targetSynthesisList) {
       return null;
     }
 
-    const allCalculateInfoMaps = this.calculateAll({targetId, targetSynthesisList, levelIdsMap, minimumLevel});
-    const possibilitySynthesisLinks = this.calculatePossibility({materialIds, allCalculateInfoMaps})
+    const allCalculateInfoMaps = SynthesisCalculator.calculateAll({
+      targetId,
+      targetSynthesisList,
+      levelIdsMap,
+      minimumLevel
+    });
+    const possibilitySynthesisLinks = SynthesisCalculator.calculatePossibility({materialIds, allCalculateInfoMaps})
 
-
-    const targetSynthesisRoutes = [];
-    for (let i = 0; i < targetSynthesisList.length; i++) {
-      const synthesisInfo = targetSynthesisList[i];
-      const res = this.calculateSynthesisRoute({
-        possibilitySynthesisLinks,
-        synthesisInfo,
-        materialIds: [...materialIds]
-      });
-      targetSynthesisRoutes.push({
-        ...synthesisInfo,
-        ...res
-      });
-    }
-    this.prioritySort(targetSynthesisRoutes);
+    const taskList = targetSynthesisList.map(synthesisInfo => SynthesisCalculator.getTinypool().run({
+      possibilitySynthesisLinks,
+      synthesisInfo,
+      materialIds: [...materialIds]
+    }, {name: 'calculateSynthesisRoute'}));
+    const targetSynthesisRoutes = await Promise.all(taskList);
+    // const targetSynthesisRoutes = targetSynthesisList.map(synthesisInfo =>
+    //   SynthesisCalculator.calculateSynthesisRoute({
+    //     possibilitySynthesisLinks,
+    //     synthesisInfo,
+    //     materialIds: [...materialIds]
+    //   })
+    // )
+    SynthesisCalculator.prioritySort(targetSynthesisRoutes);
     return targetSynthesisRoutes;
   },
   /**
    *
-   * @param {?SynthesisRouteInfo[]} synthesisRoutes
+   * @param {Level} level
+   * @return {Level}
+   */
+  verifyLevel(level) {
+    if (level > 7) {
+      level = 7;
+    } else if (level === 6) {
+      level = 5;
+    }
+    return level
+  },
+  /**
+   *
+   * @param {SynthesisRouteInfo} synthesisRouteInfo
+   * @returns {BeautifySynthesisRouteInfo}
+   */
+  beautifySynthesisRouteInfo(synthesisRouteInfo) {
+    const bItem = JSON.parse(JSON.stringify(synthesisRouteInfo));
+    bItem.targetName = allJson[synthesisRouteInfo?.synthesisInfo.ToCharacterDesignId]?.name;
+    bItem.name1 = allJson[synthesisRouteInfo?.synthesisInfo.CharacterDesignId1]?.name;
+    bItem.name2 = allJson[synthesisRouteInfo?.synthesisInfo.CharacterDesignId2]?.name;
+    bItem.depleteNames = synthesisRouteInfo.depleteIds?.map(id => allJson[id]?.name);
+    bItem.lackNames = synthesisRouteInfo.lackIds?.map(id => allJson[id]?.name);
+    return bItem;
+  },
+  /**
+   *
+   * @param {SynthesisRouteInfo} synthesisRouteInfo
+   * @param {Level} level
+   */
+  formatSynthesisRouteInfo({synthesisRouteInfo, level}) {
+    const nextLevel = SynthesisCalculator.verifyLevel(level) - 1;
+    let beautifyInfo = SynthesisCalculator.beautifySynthesisRouteInfo(synthesisRouteInfo);
+    let routes = synthesisRouteInfo.routes || [];
+    let content = "";
+    content += beautifyInfo.name1;
+    if (routes[0] && !routes[0].exist) {
+      content += `(${nextLevel}`;
+      content += SynthesisCalculator.formatSynthesisRouteInfo({synthesisRouteInfo: routes[0], level: nextLevel});
+      content += `${nextLevel})`;
+    }
+    content += ' x '
+    content += beautifyInfo.name2;
+    if (routes[1] && !routes[1].exist) {
+      content += `(${nextLevel}`;
+      content += SynthesisCalculator.formatSynthesisRouteInfo({synthesisRouteInfo: routes[1], level: nextLevel});
+      content += `${nextLevel})`;
+    }
+
+    return content;
+  },
+  /**
+   *
+   * @param {SynthesisRouteInfo[]} synthesisRouteInfos
    * @param {number} showMax
    * @returns {string}
    */
-  format({synthesisRoutes = [], showMax = 5}) {
-    if (!synthesisRoutes || synthesisRoutes.length < 1) {
+  format({synthesisRouteInfos = [], showMax = 10}) {
+    if (!synthesisRouteInfos || synthesisRouteInfos.length < 1) {
       return "no result";
     }
     if (showMax > 30) {
-      showMax = 30;
+      showMax = 60;
     }
-    let contents = [];
-    const beautifySynthesisRouteInfos = this.beautifySynthesisRouteInfos(synthesisRoutes);
-    for (let i = 0; i < beautifySynthesisRouteInfos.length && i < showMax; i++) {
-      const item = beautifySynthesisRouteInfos[i];
-      contents.push(`route: ${item.name1} x ${item.name2};\n    consume: ${item.depleteNames.join(', ')};  lack: ${item.lackNames.join(', ')}`)
+
+    let level;
+    for (let l in levelJson) {
+      if (levelJson[l].find(item => item.id === synthesisRouteInfos[0].synthesisInfo.ToCharacterDesignId)) {
+        level = l - 1;
+        break
+      }
     }
-    return contents.join('\n');
+
+    let content = '';
+    for (let i = 0; i < synthesisRouteInfos.length && i < showMax; i++) {
+      const synthesisRouteInfo = synthesisRouteInfos[i];
+      let beautifySynthesisRouteInfo = SynthesisCalculator.beautifySynthesisRouteInfo(synthesisRouteInfo);
+      content += 'route: ';
+      content += SynthesisCalculator.formatSynthesisRouteInfo({
+        synthesisRouteInfo,
+        level
+      })
+      content += `;`;
+      if (beautifySynthesisRouteInfo.lackNames && beautifySynthesisRouteInfo.lackNames.length > 0) {
+        content += ` lack: ${beautifySynthesisRouteInfo.lackNames.join(', ')}`
+      }
+      content += `\n`;
+    }
+
+    return content;
   }
 }
 
-module.exports = SynthesisCalculator;
+export default SynthesisCalculator;
+export const calculateSynthesisRoute = SynthesisCalculator.calculateSynthesisRoute

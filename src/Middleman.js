@@ -1,8 +1,16 @@
-const SynthesisCalculator = require("./SynthesisCalculator");
-const PossibilityCalculator = require("./PossibilityCalculator");
-let calculating = false;
+const esmPool = {}
+const loadESM = async (path) => {
+  if (!esmPool[path]) {
+    esmPool[path] = (await import(path)).default
+  }
+  return esmPool[path];
+}
 
+let calculating = false;
 const calculate = async ({session, options}, mode, ...args) => {
+  const SynthesisCalculator = await loadESM("./SynthesisCalculator.mjs")
+  const PossibilityCalculator = await loadESM("./PossibilityCalculator.mjs")
+
   let material;
   if (mode === 1) {
     material = args[1];
@@ -19,7 +27,7 @@ const calculate = async ({session, options}, mode, ...args) => {
   let content;
   if (mode === 1) {
     content = SynthesisCalculator.format({
-      synthesisRoutes: SynthesisCalculator.calculate({
+      synthesisRouteInfos: await SynthesisCalculator.calculate({
         targetName: args[0],
         materialNames: materialNames
       }),
@@ -27,7 +35,7 @@ const calculate = async ({session, options}, mode, ...args) => {
     })
   } else {
     content = PossibilityCalculator.format({
-      levelSynthesisRouteInfos: PossibilityCalculator.calculate({
+      levelSynthesisRouteInfos: await PossibilityCalculator.calculate({
         materialNames: materialNames,
         targetLevel: options.targetLevel,
       }),
@@ -40,11 +48,11 @@ const calculate = async ({session, options}, mode, ...args) => {
 }
 
 const _calculate = async ({session, options}, mode, args) => {
+  if (calculating) {
+    session.send('calculating, please wait.');
+    return;
+  }
   try {
-    if (calculating) {
-      session.send('calculating, please wait.');
-      return;
-    }
     calculating = true;
     await calculate({session, options}, mode, ...args);
   } catch (e) {
@@ -55,4 +63,4 @@ const _calculate = async ({session, options}, mode, args) => {
   }
 }
 
-module.exports = _calculate
+module.exports = _calculate;
