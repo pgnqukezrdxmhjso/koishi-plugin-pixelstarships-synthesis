@@ -18,7 +18,7 @@ const calculate = async ({session, options}, mode, ...args) => {
     material = args[0];
   }
 
-  const materialNames = material.split(/\s*[\s，。；,.;|]\s*/g);
+  const materialNames = options.noSpaces ? material.split(/\s*[，。；,.;|]\s*/g) :material.split(/\s*[\s，。；,.;|]\s*/g);
   if (materialNames.length > 10) {
     await session.send('There are too many materials, please wait.');
   }
