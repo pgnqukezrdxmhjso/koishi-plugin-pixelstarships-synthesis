@@ -401,9 +401,6 @@ const SynthesisCalculator = {
    */
   formatSynthesisRouteInfo({synthesisRouteInfo, level}) {
     level = SynthesisCalculator.verifyLevel(level);
-    if (!synthesisRouteInfo) {
-      console.log('>>')
-    }
     let beautifyInfo = SynthesisCalculator.beautifySynthesisRouteInfo(synthesisRouteInfo);
     let routes = [...synthesisRouteInfo.routes];
     const r = routes?.[1]?.routeDepth < routes?.[0]?.routeDepth;
