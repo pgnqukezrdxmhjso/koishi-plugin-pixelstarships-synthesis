@@ -46,16 +46,6 @@
  * @typedef {Object.<Level, Id[]>} LevelIdsMap
  */
 
-/**
- * @typedef {Object} CalculateInfo
- * @property {Id} id
- * @property {SynthesisInfo[]} synthesisList
- */
-
-/**
- * @typedef {Object.<Level, CalculateInfo>} CalculateInfoMap
- */
-
 
 /**
  * @typedef {Object} SynthesisRouteInfo

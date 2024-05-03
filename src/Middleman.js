@@ -1,66 +1,75 @@
-const esmPool = {}
-const loadESM = async (path) => {
-  if (!esmPool[path]) {
-    esmPool[path] = (await import(path)).default
-  }
-  return esmPool[path];
-}
-
-let calculating = false;
-const calculate = async ({session, options}, mode, ...args) => {
-  const SynthesisCalculator = await loadESM("./SynthesisCalculator.mjs")
-  const PossibilityCalculator = await loadESM("./PossibilityCalculator.mjs")
-
-  let material;
-  if (mode === 1) {
-    material = args[1];
-  } else {
-    material = args[0];
-  }
-
-  const materialNames = options.noSpaces ? material.split(/\s*[，。；,.;|]\s*/g) :material.split(/\s*[\s，。；,.;|]\s*/g);
-  if (materialNames.length > 10) {
-    await session.send('There are too many materials, please wait.');
-  }
-
-  const startTime = Date.now()
-  let content;
-  if (mode === 1) {
-    content = SynthesisCalculator.format({
-      synthesisRouteInfos: await SynthesisCalculator.calculate({
-        targetName: args[0],
-        materialNames: materialNames
-      }),
-      showMax: options.showMax
+const S = {
+  needInit: true,
+  esmPool: {},
+  SynthesisCalculator: null,
+  PossibilityCalculator: null,
+  calculating: false,
+  async loadESM(path) {
+    if (!S.esmPool[path]) {
+      S.esmPool[path] = (await import(path)).default
+    }
+    return S.esmPool[path];
+  },
+  async init() {
+    if (!S.needInit) {
+      return;
+    }
+    S.needInit = false;
+    S.SynthesisCalculator = await S.loadESM("./SynthesisCalculator.mjs")
+    S.PossibilityCalculator = await S.loadESM("./PossibilityCalculator.mjs")
+  },
+  splitMaterial({material, options}) {
+    return options.noSpaces ? material.split(/\s*[，。；,.;|]\s*/g) : material.split(/\s*[\s，。；,.;|]\s*/g)
+  },
+  async calculateLock({session, f}) {
+    if (S.calculating) {
+      session.send('calculating, please wait.');
+      return;
+    }
+    try {
+      S.calculating = true;
+      await f();
+    } catch (e) {
+      session.send('Calculation exception');
+      throw e;
+    } finally {
+      S.calculating = false;
+    }
+  },
+  async synthesis({session, options}, target, material) {
+    await S.init();
+    await S.calculateLock({
+      session,
+      f: async () => {
+        const startTime = Date.now();
+        const content = S.SynthesisCalculator.format({
+          synthesisRouteInfos: await S.SynthesisCalculator.calculate({
+            targetName: target,
+            materialNames: S.splitMaterial({material, options})
+          }),
+          showMax: options.showMax
+        });
+        await session.send(content + (Date.now() - startTime) / 1000 + 's');
+      }
     })
-  } else {
-    content = PossibilityCalculator.format({
-      levelSynthesisRouteInfos: await PossibilityCalculator.calculate({
-        materialNames: materialNames,
-        targetLevel: options.targetLevel,
-      }),
-      showMax: options.showMax,
-      level: options.targetLevel,
+  },
+  async possibility({session, options}, material) {
+    await S.init();
+    await S.calculateLock({
+      session,
+      f: async () => {
+        const startTime = Date.now();
+        const content = S.PossibilityCalculator.format({
+          levelSynthesisRouteInfos: await S.PossibilityCalculator.calculate({
+            materialNames: S.splitMaterial({material, options}),
+            targetLevel: options.targetLevel,
+          }),
+          showMax: options.showMax,
+          level: options.targetLevel,
+        })
+        await session.send(content + (Date.now() - startTime) / 1000 + 's');
+      }
     })
   }
-
-  await session.send(content + '\n' + (Date.now() - startTime) / 1000 + 's');
 }
-
-const _calculate = async ({session, options}, mode, args) => {
-  if (calculating) {
-    session.send('calculating, please wait.');
-    return;
-  }
-  try {
-    calculating = true;
-    await calculate({session, options}, mode, ...args);
-  } catch (e) {
-    session.send('Calculation exception');
-    throw e;
-  } finally {
-    calculating = false;
-  }
-}
-
-module.exports = _calculate;
+module.exports = S;

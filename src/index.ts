@@ -11,16 +11,26 @@ export const Config: Schema<Config> = Schema.object({})
 
 export function apply(ctx: Context) {
   ctx.command('pixelstarshipsSynthesis <target> <material:text>')
-    .option('showMax', '-m <showMax:number> maximum 60', {fallback: 10})
+    .option('showMax', '-m <showMax:number> maximum 60', {fallback: 6})
     .option('noSpaces', '-n',)
-    .action(async ({session, options}, target, material) => {
-      await Middleman({session, options}, 1, [target, material])
-    });
+    .action(async (argv, target, material) => {
+        if (!target || !material) {
+          await argv.session.execute('pixelstarshipsSynthesis -h');
+          return;
+        }
+        await Middleman.synthesis(argv, target, material)
+      }
+    );
   ctx.command('pixelstarshipsPossibility <material:text>')
     .option('targetLevel', '-l <targetLevel:number> maximum 7', {fallback: 7})
-    .option('showMax', '-m <showMax:number> maximum 6', {fallback: 3})
-    .option('noSpaces', '-n',)
-    .action(async ({session, options}, material) => {
-      await Middleman({session, options}, 2, [material])
-    });
+    .option('showMax', '-m <showMax:number> maximum 6', {fallback: 1})
+    .option('noSpaces', '-n <noSpaces:boolean>')
+    .action(async (argv, material) => {
+        if (!material) {
+          await argv.session.execute('pixelstarshipsPossibility -h');
+          return;
+        }
+        await Middleman.possibility(argv, material);
+      }
+    );
 }
