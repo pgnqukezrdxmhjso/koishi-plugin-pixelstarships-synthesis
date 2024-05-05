@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pixelstarships-synthesis",
   "description": "pixelstarships synthesis calculator",
-  "version": "0.0.35",
+  "version": "0.0.38",
   "contributors": [
     "pgnqukezrdxmhjso"
   ],
@@ -15,7 +15,8 @@
   "scripts": {
     "build": "cd ../../ && yarn build pixelstarships-synthesis",
     "pub": "cd ../../ && yarn pub pixelstarships-synthesis",
-    "fastPub": "cd ../../ && yarn bump -3 pixelstarships-synthesis && yarn build pixelstarships-synthesis && yarn pub pixelstarships-synthesis"
+    "fastPub": "cd ../../ && yarn bump -3 pixelstarships-synthesis && yarn build pixelstarships-synthesis && yarn pub pixelstarships-synthesis",
+    "test": "node ./test/test.js"
   },
   "files": [
     "lib",

@@ -102,6 +102,9 @@ const PossibilityCalculator = {
       const possessSynthesisInfosMap = possessLevelSynthesisInfosMap[nextLevel];
       for (let id1 in possessLeveInfoMap) {
         let synthesisInfoMap = synthesisInfoBackwardsMap[id1];
+        if (!synthesisInfoMap) {
+          continue;
+        }
         for (let id2 in possessLeveInfoMap) {
           const synthesisInfo = synthesisInfoMap[id2];
           if (!synthesisInfo) {
@@ -153,9 +156,11 @@ const PossibilityCalculator = {
             allowLack: false,
             nextLevel: computeLevel
           });
-          if (res.k >= 2) {
-            synthesisRoutes.push(res);
+          if (!res || res.k < 2) {
+            resolve();
+            return;
           }
+          synthesisRoutes.push(res);
           resolve();
         }));
       }
@@ -177,7 +182,7 @@ const PossibilityCalculator = {
   format({levelSynthesisRouteInfos, showMax = 3, level = 7}) {
     level = SynthesisCalculator.verifyLevel(level) - 1;
     if (!levelSynthesisRouteInfos || levelSynthesisRouteInfos.length < 1) {
-      return "no result";
+      return "no result\n";
     }
     if (showMax > 6) {
       showMax = 6;
@@ -188,7 +193,8 @@ const PossibilityCalculator = {
       if (synthesisRouteInfos.length < 1) {
         continue;
       }
-      content += `🌠 ${allJson[id]?.name}\n`
+      content += `🌠 ${allJson[id]?.name}`;
+      content += showMax === 1 ? ' ' : '\n';
       for (let i = 0; i < synthesisRouteInfos.length && i < showMax; i++) {
         const item = synthesisRouteInfos[i];
         content += `👪 `;
@@ -200,11 +206,10 @@ const PossibilityCalculator = {
       }
     }
     if (content.trim().length < 1) {
-      return "no result";
+      return "no result\n";
     }
     return content;
   }
 }
 
 export default PossibilityCalculator;
-export const calculateSynthesisRoute = PossibilityCalculator.calculateSynthesisRoute

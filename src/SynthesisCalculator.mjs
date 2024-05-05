@@ -168,16 +168,61 @@ const SynthesisCalculator = {
    * @param {Id[]} materialIds
    * @param {boolean} allowLack
    * @param {Level} [nextLevel]
-   * @returns {SynthesisRouteInfo}
+   * @returns {Promise<SynthesisRouteInfo>}
    */
-  async calculateSynthesisRoute({levelSynthesisInfosMap, synthesisInfo, materialIds, allowLack = true, nextLevel}) {
-    return await SynthesisCalculator.getTinypool().run({
+  calculateSynthesisRoute({levelSynthesisInfosMap, synthesisInfo, materialIds, allowLack = true, nextLevel}) {
+    return SynthesisCalculator.getTinypool().run({
       levelSynthesisInfosMap,
       synthesisInfo,
       materialIds,
       allowLack,
       nextLevel,
-    }, {name: '_calculateSynthesisRoute'})
+    }, {name: '_calculateSynthesisRoute'});
+  },
+  _calculateSynthesisRoute2({
+                              id,
+                              exist,
+                              item,
+                              levelSynthesisInfosMap,
+                              materialIds,
+                              depleteIds,
+                              nextLevel,
+                              allowLack,
+                              lackIds
+                            }) {
+    let route;
+    if (exist) {
+      route = {
+        k: 1,
+        exist: true,
+        routeDepth: 0
+      }
+      return route;
+    }
+    if (item) {
+      const res = SynthesisCalculator._calculateSynthesisRoute({
+        levelSynthesisInfosMap,
+        synthesisInfo: item,
+        materialIds,
+        nextLevel: nextLevel - 1
+      });
+      if (!res) {
+        return null;
+      }
+      SynthesisCalculator.arrayRm(materialIds, res.depleteIds);
+      depleteIds.push(...res.depleteIds)
+      route = res;
+      route.k = res.k / 2;
+      route.routeDepth = res.routeDepth + 1;
+      if (allowLack && route.lackIds) {
+        lackIds.push(...route.lackIds);
+      }
+      return route;
+    }
+    if (allowLack) {
+      lackIds.push(id);
+    }
+    return null;
   },
   /**
    *
@@ -215,64 +260,39 @@ const SynthesisCalculator = {
       for (let i2 in synthesisList2) {
         const item2 = synthesisList2[i2];
 
-        let r1;
         let lackIds = [];
         const mIds = [...materialIds];
         let dIds = [...depleteIds];
         let k = 0;
-        if (exist1) {
-          k++;
-          r1 = {
-            k: 1,
-            exist: true,
-            routeDepth: 0
-          }
-        } else if (item1) {
-          const res = SynthesisCalculator._calculateSynthesisRoute({
-            levelSynthesisInfosMap,
-            synthesisInfo: item1,
-            materialIds: mIds,
-            nextLevel: nextLevel - 1
-          });
-          SynthesisCalculator.arrayRm(mIds, res.depleteIds);
-          dIds.push(...res.depleteIds)
-          r1 = res;
-          r1.k = res.k / 2;
-          r1.routeDepth = res.routeDepth + 1;
-          if (allowLack && r1.lackIds) {
-            lackIds.push(...r1.lackIds);
-          }
+
+        let r1 = SynthesisCalculator._calculateSynthesisRoute2({
+          id: id1,
+          exist: exist1,
+          item: item1,
+          levelSynthesisInfosMap,
+          materialIds: mIds,
+          depleteIds: dIds,
+          nextLevel,
+          allowLack,
+          lackIds
+        });
+        if (r1) {
           k += r1.k;
-        } else if (allowLack) {
-          lackIds.push(id1);
         }
 
-        let r2;
-        if (exist2) {
-          k++;
-          r2 = {
-            k: 1,
-            exist: true,
-            routeDepth: 0
-          };
-        } else if (item2) {
-          const res = SynthesisCalculator._calculateSynthesisRoute({
-            levelSynthesisInfosMap,
-            synthesisInfo: item2,
-            materialIds: mIds,
-            nextLevel: nextLevel - 1
-          });
-          SynthesisCalculator.arrayRm(mIds, res.depleteIds);
-          dIds.push(...res.depleteIds)
-          r2 = res;
-          r2.k = res.k / 2;
-          r2.routeDepth = res.routeDepth + 1;
-          if (allowLack && r2.lackIds) {
-            lackIds.push(...r2.lackIds);
-          }
+        let r2 = SynthesisCalculator._calculateSynthesisRoute2({
+          id: id2,
+          exist: exist2,
+          item: item2,
+          levelSynthesisInfosMap,
+          materialIds: mIds,
+          depleteIds: dIds,
+          nextLevel,
+          allowLack,
+          lackIds
+        });
+        if (r2) {
           k += r2.k;
-        } else if (allowLack) {
-          lackIds.push(id2);
         }
 
         if (!allowLack && k < 2) {
@@ -289,17 +309,10 @@ const SynthesisCalculator = {
       }
     }
     SynthesisCalculator.prioritySort(calculateRoutes);
-    /**
-     * @type {SynthesisRouteInfo}
-     */
-    let route = calculateRoutes[0];
-    if (!route) {
-      route = {
-        k: 0, routeDepth: 0, depleteIds: []
-      };
+    if (calculateRoutes[0]) {
+      calculateRoutes[0].synthesisInfo = synthesisInfo;
     }
-    route.synthesisInfo = synthesisInfo;
-    return route;
+    return calculateRoutes[0];
   },
   /**
    *
@@ -412,7 +425,6 @@ const SynthesisCalculator = {
     content += SynthesisCalculator.formatSynthesisRouteInfo2({
       index: r ? 0 : 1, beautifyInfo, nextLevel: level - 1
     });
-
     return content;
   },
   /**
@@ -423,7 +435,7 @@ const SynthesisCalculator = {
    */
   format({synthesisRouteInfos = [], showMax = 10}) {
     if (!synthesisRouteInfos || synthesisRouteInfos.length < 1) {
-      return "no result";
+      return "no result\n";
     }
     if (showMax > 30) {
       showMax = 60;
