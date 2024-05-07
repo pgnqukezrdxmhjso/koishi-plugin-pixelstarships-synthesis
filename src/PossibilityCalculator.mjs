@@ -129,6 +129,7 @@ const PossibilityCalculator = {
       targetLevel,
       levelSynthesisInfosMap: allRoutes,
       materialIds,
+      allowLack: false,
     });
 
     const targetLevelInfos = levelJson[targetLevel];

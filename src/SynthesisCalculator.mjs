@@ -211,9 +211,10 @@ const SynthesisCalculator = {
    * @param {Level} targetLevel
    * @param {LevelSynthesisInfosMap} levelSynthesisInfosMap
    * @param {Id[]} materialIds
+   * @param {boolean} allowLack
    * @return {IdSynthesisLinksMap}
    */
-  handleSynthesisLinks({targetLevel, levelSynthesisInfosMap, materialIds}) {
+  handleSynthesisLinks({targetLevel, levelSynthesisInfosMap, materialIds, allowLack = true}) {
     /**
      * @type {IdSynthesisLinksMap}
      */
@@ -253,7 +254,7 @@ const SynthesisCalculator = {
                 return k + 1;
               }, 0) / materials.length;
 
-              if (k <= 0) {
+              if (k <= 0 || !allowLack && k < 1) {
                 return;
               }
 
@@ -294,6 +295,13 @@ const SynthesisCalculator = {
         getOrDefaultLink({id: synthesisInfo.CharacterDesignId1, level});
         getOrDefaultLink({id: synthesisInfo.CharacterDesignId2, level});
       })
+    }
+    for (let id in allSynthesisLinks) {
+      const synthesisLinks = allSynthesisLinks[id];
+      if ((synthesisLinks?.length || 0) < 50) {
+        continue;
+      }
+      allSynthesisLinks[id] = allSynthesisLinks[id].slice(0, 50)
     }
     return allSynthesisLinks
   },
