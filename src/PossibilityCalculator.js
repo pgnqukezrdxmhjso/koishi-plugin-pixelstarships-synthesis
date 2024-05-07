@@ -1,7 +1,3 @@
-import SynthesisCalculator from "./SynthesisCalculator.mjs";
-import {createRequire} from 'node:module';
-
-const require = createRequire(import.meta.url);
 /**
  * @type {RoleInfoMap}
  */
@@ -14,6 +10,7 @@ const levelJson = require('./data/level.json');
  * @type {SynthesisInfoMap}
  */
 const synthesisJson = require('./data/synthesis.json');
+const SynthesisCalculator = require("./SynthesisCalculator");
 
 const PossibilityCalculator = {
   /**
@@ -192,4 +189,4 @@ const PossibilityCalculator = {
   }
 }
 
-export default PossibilityCalculator;
+module.exports = PossibilityCalculator;

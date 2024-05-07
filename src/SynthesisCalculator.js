@@ -1,7 +1,3 @@
-import Tinypool from "tinypool";
-import {createRequire} from 'node:module';
-
-const require = createRequire(import.meta.url);
 /**
  * @type {RoleInfoMap}
  */
@@ -16,15 +12,6 @@ const levelJson = require("./data/level.json");
 const synthesisJson = require("./data/synthesis.json");
 
 const SynthesisCalculator = {
-  tinypool: null,
-  getTinypool() {
-    if (!SynthesisCalculator.tinypool) {
-      SynthesisCalculator.tinypool = new Tinypool({
-        filename: new URL('./SynthesisCalculator.mjs', import.meta.url).href
-      });
-    }
-    return SynthesisCalculator.tinypool;
-  },
   levelIdsMap: null,
   /**
    *
@@ -391,20 +378,6 @@ const SynthesisCalculator = {
    * @param {string} targetName
    * @param {string[]} materialNames
    * @param {Level} minimumLevel
-   * @returns {Promise<null|CalculateSynthesisLinkInfo[]>}
-   */
-  _calculate({targetName, materialNames, minimumLevel}) {
-    return SynthesisCalculator.getTinypool().run({
-      targetName,
-      materialNames,
-      minimumLevel,
-    }, {name: 'calculate'});
-  },
-  /**
-   *
-   * @param {string} targetName
-   * @param {string[]} materialNames
-   * @param {Level} minimumLevel
    * @returns {null|CalculateSynthesisLinkInfo[]}
    */
   calculate({targetName, materialNames = [], minimumLevel = '3'}) {
@@ -529,5 +502,4 @@ const SynthesisCalculator = {
   },
 }
 
-export default SynthesisCalculator;
-export const calculate = SynthesisCalculator.calculate
+module.exports = SynthesisCalculator;

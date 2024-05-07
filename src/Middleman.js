@@ -1,34 +1,18 @@
+const PossibilityCalculator = require("./PossibilityCalculator.js");
+const SynthesisCalculator = require("./SynthesisCalculator.js");
 const S = {
-  needInit: true,
-  esmPool: {},
-  SynthesisCalculator: null,
-  PossibilityCalculator: null,
   calculating: false,
-  async loadESM(path) {
-    if (!S.esmPool[path]) {
-      S.esmPool[path] = (await import(path)).default
-    }
-    return S.esmPool[path];
-  },
-  async init() {
-    if (!S.needInit) {
-      return;
-    }
-    S.needInit = false;
-    S.SynthesisCalculator = await S.loadESM("./SynthesisCalculator.mjs")
-    S.PossibilityCalculator = await S.loadESM("./PossibilityCalculator.mjs")
-  },
   splitMaterial({material, options}) {
     return options.noSpaces ? material.split(/\s*[，。；,.;|]\s*/g) : material.split(/\s*[\s，。；,.;|]\s*/g)
   },
-  async calculateLock({session, f}) {
+  calculateLock({session, f}) {
     if (S.calculating) {
       session.send('calculating, please wait.');
       return;
     }
     try {
       S.calculating = true;
-      await f();
+      f();
     } catch (e) {
       session.send('Calculation exception');
       throw e;
@@ -36,50 +20,47 @@ const S = {
       S.calculating = false;
     }
   },
-  async synthesis({session, options}, target, material) {
-    await S.init();
+  synthesis({session, options}, target, material) {
     const materialNames = S.splitMaterial({material, options});
-    const errorNames = S.SynthesisCalculator.verifyNames(materialNames);
+    const errorNames = SynthesisCalculator.verifyNames(materialNames);
     if (errorNames.length > 0) {
       session.send('wrong name:' + errorNames.join(', '));
       return;
     }
-    await S.calculateLock({
+    S.calculateLock({
       session,
-      f: async () => {
+      f: () => {
         const startTime = Date.now();
-        const calculateSynthesisLinkInfos = await S.SynthesisCalculator._calculate({
-          targetName: target,
-          materialNames,
-        })
-        const content = S.SynthesisCalculator.format({
-          calculateSynthesisLinkInfos: calculateSynthesisLinkInfos,
+        const content = SynthesisCalculator.format({
+          calculateSynthesisLinkInfos: SynthesisCalculator.calculate({
+            targetName: target,
+            materialNames,
+          }),
           showMax: options.showMax
         });
-        await session.send(content + (Date.now() - startTime) / 1000 + 's');
+        session.send(content + (Date.now() - startTime) / 1000 + 's');
       }
     })
   },
-  async possibility({session, options}, material) {
-    await S.init();
+  possibility({session, options}, material) {
     const materialNames = S.splitMaterial({material, options});
-    const errorNames = S.SynthesisCalculator.verifyNames(materialNames);
+    const errorNames = SynthesisCalculator.verifyNames(materialNames);
     if (errorNames.length > 0) {
       session.send('wrong name:' + errorNames.join(', '));
       return;
     }
-    await S.calculateLock({
+    S.calculateLock({
       session,
-      f: async () => {
+      f: () => {
         const startTime = Date.now();
-        const content = S.PossibilityCalculator.format({
-          levelCalculateSynthesisLinkInfos: S.PossibilityCalculator.calculate({
+        const content = PossibilityCalculator.format({
+          levelCalculateSynthesisLinkInfos: PossibilityCalculator.calculate({
             materialNames,
             targetLevel: options.targetLevel,
           }),
           showMax: options.showMax,
         });
-        await session.send(content + (Date.now() - startTime) / 1000 + 's');
+        session.send(content + (Date.now() - startTime) / 1000 + 's');
       }
     })
   }
