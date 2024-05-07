@@ -5,35 +5,17 @@ const require = createRequire(import.meta.url);
 /**
  * @type {RoleInfoMap}
  */
-const allJson = require("./data/all.json");
+const allJson = require('./data/all.json');
 /**
  * @type {LeveInfoMap}
  */
-const levelJson = require("./data/level.json");
+const levelJson = require('./data/level.json');
 /**
  * @type {SynthesisInfoMap}
  */
-const synthesisJson = require("./data/synthesis.json");
+const synthesisJson = require('./data/synthesis.json');
 
 const PossibilityCalculator = {
-  /**
-   *
-   * @param {string[]} names
-   * @returns {Id[]}
-   */
-  namesToIds(names) {
-    const nameMap = {};
-    for (let id in allJson) {
-      nameMap[allJson[id].name] = allJson[id];
-    }
-    const ids = [];
-    names.forEach(name => {
-      if (nameMap[name]) {
-        ids.push(nameMap[name].id)
-      }
-    });
-    return ids;
-  },
   /**
    *
    * @returns {SynthesisInfoBackwardsMap}
@@ -120,6 +102,10 @@ const PossibilityCalculator = {
           possessSynthesisInfosMap[tId].push(synthesisInfo)
         }
       }
+
+      if (Object.keys(possessSynthesisInfosMap).length < 1) {
+        delete possessLevelSynthesisInfosMap[nextLevel];
+      }
       levelIndex = nextLevel;
     }
     return possessLevelSynthesisInfosMap;
@@ -128,79 +114,72 @@ const PossibilityCalculator = {
    *
    * @param {string[]} materialNames
    * @param {Level} targetLevel
-   * @returns {LevelSynthesisRouteInfos}
+   * @returns {LevelCalculateSynthesisLinkInfos}
    */
-  async calculate({materialNames, targetLevel = 7}) {
+  calculate({materialNames, targetLevel = '7'}) {
     targetLevel = SynthesisCalculator.verifyLevel(targetLevel);
     const computeLevel = SynthesisCalculator.verifyLevel(targetLevel - 1);
-    const materialIds = PossibilityCalculator.namesToIds(materialNames);
+    const materialIds = SynthesisCalculator.namesToIds(materialNames);
     const synthesisInfoBackwardsMap = PossibilityCalculator.synthesisJsonToBackwards();
     const allRoutes = PossibilityCalculator.allRoute({
       materialIds, synthesisInfoBackwardsMap, maxLevel: computeLevel
     });
 
+    const allSynthesisLinks = SynthesisCalculator.handleSynthesisLinks({
+      targetLevel,
+      levelSynthesisInfosMap: allRoutes,
+      materialIds,
+    });
+
     const targetLevelInfos = levelJson[targetLevel];
-    const targetLevelSynthesisRouteInfos = {};
-    const taskList = [];
+    const levelCalculateSynthesisLinkInfos = {};
     for (let i = 0; i < targetLevelInfos.length; i++) {
       const levelInfo = targetLevelInfos[i];
       const synthesisInfos = synthesisJson[levelInfo.id] || [];
-      const synthesisRoutes = [];
-      targetLevelSynthesisRouteInfos[levelInfo.id] = synthesisRoutes;
+      const calculateSynthesisLinkInfos = [];
+      levelCalculateSynthesisLinkInfos[levelInfo.id] = calculateSynthesisLinkInfos;
       for (const synthesisInfo of synthesisInfos) {
-        taskList.push(new Promise(async (resolve) => {
-          const res = await SynthesisCalculator.calculateSynthesisRoute({
-            levelSynthesisInfosMap: allRoutes,
-            synthesisInfo,
-            materialIds: [...materialIds],
-            allowLack: false,
-            nextLevel: computeLevel
-          });
-          if (!res || res.k < 2) {
-            resolve();
-            return;
-          }
-          synthesisRoutes.push(res);
-          resolve();
-        }));
+        const res = SynthesisCalculator.calculateSynthesisLink({
+          allSynthesisLinks,
+          synthesisInfo,
+          materialIds,
+          allowLack: false,
+        });
+        if (!res || res.k < 2) {
+          continue
+        }
+        calculateSynthesisLinkInfos.push(res);
       }
+      SynthesisCalculator.prioritySort(calculateSynthesisLinkInfos);
     }
-    await Promise.all(taskList)
-    for (let id in targetLevelSynthesisRouteInfos) {
-      SynthesisCalculator.prioritySort(targetLevelSynthesisRouteInfos[id]);
-    }
-
-    return targetLevelSynthesisRouteInfos;
+    return levelCalculateSynthesisLinkInfos;
   },
   /**
    *
-   * @param {LevelSynthesisRouteInfos} levelSynthesisRouteInfos
+   * @param {LevelCalculateSynthesisLinkInfos} levelCalculateSynthesisLinkInfos
    * @param {number} showMax
-   * @param {Level} level
    * @returns {string}
    */
-  format({levelSynthesisRouteInfos, showMax = 3, level = 7}) {
-    level = SynthesisCalculator.verifyLevel(level) - 1;
-    if (!levelSynthesisRouteInfos || levelSynthesisRouteInfos.length < 1) {
+  format({levelCalculateSynthesisLinkInfos, showMax = 3}) {
+    if (!levelCalculateSynthesisLinkInfos || Object.keys(levelCalculateSynthesisLinkInfos).length < 1) {
       return "no result\n";
     }
     if (showMax > 6) {
       showMax = 6;
     }
     let content = '';
-    for (let id in levelSynthesisRouteInfos) {
-      let synthesisRouteInfos = levelSynthesisRouteInfos[id];
-      if (synthesisRouteInfos.length < 1) {
+    for (let id in levelCalculateSynthesisLinkInfos) {
+      let calculateSynthesisLinkInfos = levelCalculateSynthesisLinkInfos[id];
+      if (calculateSynthesisLinkInfos.length < 1) {
         continue;
       }
-      content += `🌠 ${allJson[id]?.name}`;
+      content += ` 🌠 ${allJson[id]?.name}`;
       content += showMax === 1 ? ' ' : '\n';
-      for (let i = 0; i < synthesisRouteInfos.length && i < showMax; i++) {
-        const item = synthesisRouteInfos[i];
-        content += `👪 `;
-        content += SynthesisCalculator.formatSynthesisRouteInfo({
-          synthesisRouteInfo: item,
-          level
+      for (let i = 0; i < calculateSynthesisLinkInfos.length && i < showMax; i++) {
+        const item = calculateSynthesisLinkInfos[i];
+        content += ` 👪 `;
+        content += SynthesisCalculator.formatSynthesisLink({
+          synthesisLink: item,
         })
         content += "\n";
       }

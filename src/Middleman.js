@@ -38,15 +38,22 @@ const S = {
   },
   async synthesis({session, options}, target, material) {
     await S.init();
+    const materialNames = S.splitMaterial({material, options});
+    const errorNames = S.SynthesisCalculator.verifyNames(materialNames);
+    if (errorNames.length > 0) {
+      session.send('wrong name:' + errorNames.join(', '));
+      return;
+    }
     await S.calculateLock({
       session,
       f: async () => {
         const startTime = Date.now();
+        const calculateSynthesisLinkInfos = await S.SynthesisCalculator._calculate({
+          targetName: target,
+          materialNames,
+        })
         const content = S.SynthesisCalculator.format({
-          synthesisRouteInfos: await S.SynthesisCalculator.calculate({
-            targetName: target,
-            materialNames: S.splitMaterial({material, options})
-          }),
+          calculateSynthesisLinkInfos: calculateSynthesisLinkInfos,
           showMax: options.showMax
         });
         await session.send(content + (Date.now() - startTime) / 1000 + 's');
@@ -55,18 +62,23 @@ const S = {
   },
   async possibility({session, options}, material) {
     await S.init();
+    const materialNames = S.splitMaterial({material, options});
+    const errorNames = S.SynthesisCalculator.verifyNames(materialNames);
+    if (errorNames.length > 0) {
+      session.send('wrong name:' + errorNames.join(', '));
+      return;
+    }
     await S.calculateLock({
       session,
       f: async () => {
         const startTime = Date.now();
         const content = S.PossibilityCalculator.format({
-          levelSynthesisRouteInfos: await S.PossibilityCalculator.calculate({
-            materialNames: S.splitMaterial({material, options}),
+          levelCalculateSynthesisLinkInfos: S.PossibilityCalculator.calculate({
+            materialNames,
             targetLevel: options.targetLevel,
           }),
           showMax: options.showMax,
-          level: options.targetLevel,
-        })
+        });
         await session.send(content + (Date.now() - startTime) / 1000 + 's');
       }
     })

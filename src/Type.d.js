@@ -1,8 +1,8 @@
 /**
- @typedef {number} Level
+ * @typedef {string} Level
  */
 /**
- @typedef {string} Id
+ * @typedef {string} Id
  */
 
 /**
@@ -27,7 +27,7 @@
  * @property {Level} Rarity
  */
 /**
- @typedef {Object.<Id, LeveInfo[]>} LeveInfoMap
+ * @typedef {Object.<Id, LeveInfo[]>} LeveInfoMap
  */
 
 /**
@@ -38,7 +38,7 @@
  * @property {Id} ToCharacterDesignId
  */
 /**
- @typedef {Object.<Id, SynthesisInfo[]>} SynthesisInfoMap
+ * @typedef {Object.<Id, SynthesisInfo[]>} SynthesisInfoMap
  */
 
 
@@ -52,7 +52,7 @@
  * @property {boolean} [exist]
  * @property {number} k
  * @property {SynthesisRouteInfo[]} [routes]
- * @property {number} routeDepth
+ * @property {number} depth
  * @property {Id[]} [depleteIds]
  * @property {Id[]} [lackIds]
  * @property {SynthesisInfo} [synthesisInfo]
@@ -68,14 +68,41 @@
  */
 
 /**
- @typedef {Object.<Id, Object.<Id, SynthesisInfo>>} SynthesisInfoBackwardsMap
+ * @typedef {Object.<Id, Object.<Id, SynthesisInfo>>} SynthesisInfoBackwardsMap
  */
 
 /**
- @typedef {Object.<Level, Object.<Id, SynthesisInfo[]>>} LevelSynthesisInfosMap
+ * @typedef {Object.<Level, Object.<Id, SynthesisInfo[]>>} LevelSynthesisInfosMap
  */
 
 /**
- @typedef {Object.<Id, SynthesisRouteInfo[]>} LevelSynthesisRouteInfos
+ * @typedef {Object.<Id, CalculateSynthesisLinkInfo[]>} LevelCalculateSynthesisLinkInfos
  */
 
+/**
+ * @typedef {Object} SynthesisLink
+ * @property {Id} tId
+ * @property {Level} level
+ * @property {number} k
+ * @property {Id[]} [depleteIds]
+ * @property {Id[]} [lackIds]
+ * @property {Id[]} materials
+ * @property {number} depth
+ * @property {SynthesisLink} [synthesisLink1]
+ * @property {SynthesisLink} [synthesisLink2]
+ */
+
+
+/**
+ * @typedef {Object.<Id,SynthesisLink[]>} IdSynthesisLinksMap
+ */
+
+/**
+ * @typedef {Object} CalculateSynthesisLinkInfo
+ * @property {SynthesisLink} [synthesisLink1]
+ * @property {SynthesisLink} [synthesisLink2]
+ * @property {number} k
+ * @property {number} depth
+ * @property {Id[]} [depleteIds]
+ * @property {Id[]} [lackIds]
+ */

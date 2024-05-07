@@ -22,7 +22,7 @@ export function apply(ctx: Context) {
       }
     );
   ctx.command('pixelstarshipsPossibility <material:text>')
-    .option('targetLevel', '-l <targetLevel:number> maximum 7', {fallback: 7})
+    .option('targetLevel', '-t <targetLevel:number> maximum 7', {fallback: 7})
     .option('showMax', '-m <showMax:number> maximum 6', {fallback: 1})
     .option('noSpaces', '-n <noSpaces:boolean>')
     .action(async (argv, material) => {

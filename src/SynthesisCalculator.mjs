@@ -25,31 +25,81 @@ const SynthesisCalculator = {
     }
     return SynthesisCalculator.tinypool;
   },
+  levelIdsMap: null,
   /**
    *
-   * @param {string} targetName
-   * @param {string[]} materialNames
-   * @returns {{targetId:Id, levelIdsMap: LevelIdsMap, materialIds: Id[]}}
+   * @return {LevelIdsMap}
    */
-  handleLevelJson({targetName, materialNames}) {
-    let targetId;
+  getLevelIdsMap() {
+    if (SynthesisCalculator.levelIdsMap) {
+      return SynthesisCalculator.levelIdsMap;
+    }
     const levelIdsMap = {}
-    let materialIds = []
     for (let level in levelJson) {
       levelIdsMap[level] = []
       for (const item of levelJson[level]) {
         levelIdsMap[level].push(item.id);
-        if (targetName === item.name) {
-          targetId = item.id;
-        }
-        if (materialNames.includes(item.name)) {
-          materialIds.push(item.id);
-        }
       }
     }
-    return {
-      targetId, levelIdsMap, materialIds
+    SynthesisCalculator.levelIdsMap = levelIdsMap;
+    return levelIdsMap
+  },
+  /**
+   *
+   * @param {Id} id
+   * @return {Level}
+   */
+  getIdLevel(id) {
+    let levelIdsMap = SynthesisCalculator.getLevelIdsMap();
+    let level;
+    for (let l in levelIdsMap) {
+      if (levelIdsMap[l].includes(id)) {
+        level = l;
+        break;
+      }
     }
+    return level;
+  },
+  nameMap: null,
+  getNameMap() {
+    if (!SynthesisCalculator.nameMap) {
+      const nameMap = {};
+      for (let id in allJson) {
+        nameMap[allJson[id].name] = allJson[id];
+      }
+      SynthesisCalculator.nameMap = nameMap;
+    }
+    return SynthesisCalculator.nameMap;
+  },
+  /**
+   *
+   * @param {string[]} names
+   * @returns {Id[]}
+   */
+  namesToIds(names) {
+    const nameMap = SynthesisCalculator.getNameMap();
+    const ids = [];
+    names.forEach(name => {
+      if (nameMap[name]) {
+        ids.push(nameMap[name].id)
+      }
+    });
+    return ids;
+  },
+  /**
+   *
+   * @param {string[]} names
+   * @return {*[]|null}
+   */
+  verifyNames(names) {
+    const nameMap = SynthesisCalculator.getNameMap();
+    const errorNames = []
+    names.forEach(name => {
+      if (!nameMap[name]) {
+        errorNames.push(name);
+      }
+    });
+    return errorNames;
   },
   /**
    *
@@ -70,7 +120,7 @@ const SynthesisCalculator = {
     const levelSynthesisInfosMap = {[targetLevel]: {[targetId]: targetSynthesisList}};
 
     let nextLevel;
-    for (let level = targetLevel; level >= minimumLevel; level = nextLevel) {
+    for (let level = targetLevel; SynthesisCalculator.verifyLevel(level - 1) > minimumLevel; level = nextLevel) {
       nextLevel = SynthesisCalculator.verifyLevel(level - 1);
       const currentSynthesisInfosMap = levelSynthesisInfosMap[level];
       levelSynthesisInfosMap[nextLevel] = {};
@@ -97,7 +147,7 @@ const SynthesisCalculator = {
    *
    * @param {Id[]} materialIds
    * @param {LevelSynthesisInfosMap} levelSynthesisInfosMap
-   * @returns {null|LevelSynthesisInfosMap}
+   * @returns {LevelSynthesisInfosMap}
    */
   calculatePossibility({materialIds, levelSynthesisInfosMap}) {
     const levels = [];
@@ -130,221 +180,242 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {any[]} array
-   * @param {any[]} rms
+   * @param {SynthesisRouteInfo} a
+   * @param {SynthesisRouteInfo} b
+   * @return {number}
    */
-  arrayRm(array, rms) {
-    rms?.forEach(item => {
-      const pi = array.indexOf(item);
-      if (pi > -1) {
-        array.splice(pi, 1);
-      }
-    })
+  prioritySortFn(a, b) {
+    let diff = b.k - a.k;
+    if (diff !== 0) {
+      return diff;
+    }
+    diff = a.depth - b.depth;
+    if (diff !== 0) {
+      return diff;
+    }
+    diff = (a.lackIds?.length || 0) - (b.lackIds?.length || 0);
+    if (diff !== 0) {
+      return diff;
+    }
+    return a.depleteIds.length - b.depleteIds.length;
   },
   /**
    *
    * @param {SynthesisRouteInfo[]} list
    */
   prioritySort(list) {
-    list.sort((a, b) => {
-      let diff = b.k - a.k;
-      if (diff !== 0) {
-        return diff;
-      }
-      diff = a.routeDepth - b.routeDepth;
-      if (diff !== 0) {
-        return diff;
-      }
-      if (b.lackIds && a.lackIds) {
-        return a.lackIds.length - b.lackIds.length;
-      }
-      return b.depleteIds.length - a.depleteIds.length;
-    })
+    list.sort(SynthesisCalculator.prioritySortFn)
   },
   /**
    *
+   * @param {Level} targetLevel
    * @param {LevelSynthesisInfosMap} levelSynthesisInfosMap
-   * @param {SynthesisInfo} synthesisInfo
    * @param {Id[]} materialIds
-   * @param {boolean} allowLack
-   * @param {Level} [nextLevel]
-   * @returns {Promise<SynthesisRouteInfo>}
+   * @return {IdSynthesisLinksMap}
    */
-  calculateSynthesisRoute({levelSynthesisInfosMap, synthesisInfo, materialIds, allowLack = true, nextLevel}) {
-    return SynthesisCalculator.getTinypool().run({
-      levelSynthesisInfosMap,
-      synthesisInfo,
-      materialIds,
-      allowLack,
-      nextLevel,
-    }, {name: '_calculateSynthesisRoute'});
-  },
-  _calculateSynthesisRoute2({
-                              id,
-                              exist,
-                              item,
-                              levelSynthesisInfosMap,
-                              materialIds,
-                              depleteIds,
-                              nextLevel,
-                              allowLack,
-                              lackIds
-                            }) {
-    let route;
-    if (exist) {
-      route = {
-        k: 1,
-        exist: true,
-        routeDepth: 0
+  handleSynthesisLinks({targetLevel, levelSynthesisInfosMap, materialIds}) {
+    /**
+     * @type {IdSynthesisLinksMap}
+     */
+    const allSynthesisLinks = {};
+    const getOrDefaultLink = ({id, level}) => {
+      if (!allSynthesisLinks[id]) {
+        allSynthesisLinks[id] = [{
+          tId: id,
+          level,
+          k: materialIds.includes(id) ? 1 : 0,
+          depth: 0,
+          materials: [id],
+        }]
       }
-      return route;
+      return allSynthesisLinks[id];
     }
-    if (item) {
-      const res = SynthesisCalculator._calculateSynthesisRoute({
-        levelSynthesisInfosMap,
-        synthesisInfo: item,
-        materialIds,
-        nextLevel: nextLevel - 1
-      });
-      if (!res) {
-        return null;
-      }
-      SynthesisCalculator.arrayRm(materialIds, res.depleteIds);
-      depleteIds.push(...res.depleteIds)
-      route = res;
-      route.k = res.k / 2;
-      route.routeDepth = res.routeDepth + 1;
-      if (allowLack && route.lackIds) {
-        lackIds.push(...route.lackIds);
-      }
-      return route;
-    }
-    if (allowLack) {
-      lackIds.push(id);
-    }
-    return null;
-  },
-  /**
-   *
-   * @param {LevelSynthesisInfosMap} levelSynthesisInfosMap
-   * @param {SynthesisInfo} synthesisInfo
-   * @param {Id[]} materialIds
-   * @param {boolean} allowLack
-   * @param {Level} [nextLevel]
-   * @returns {SynthesisRouteInfo}
-   */
-  _calculateSynthesisRoute({levelSynthesisInfosMap, synthesisInfo, materialIds, allowLack = true, nextLevel}) {
-    const id1 = synthesisInfo['CharacterDesignId1'];
-    const id2 = synthesisInfo['CharacterDesignId2'];
+    for (let l = 4; l <= 5 && l < targetLevel; l++) {
+      const level = l + '';
+      const nextLevel = SynthesisCalculator.verifyLevel(level - 1);
+      for (let id in levelSynthesisInfosMap[level]) {
+        const synthesisLinks = getOrDefaultLink({id, level});
+        levelSynthesisInfosMap[level][id]?.forEach(synthesisInfo => {
+          const id1 = synthesisInfo.CharacterDesignId1;
+          const id2 = synthesisInfo.CharacterDesignId2;
+          getOrDefaultLink({id: id1, level: nextLevel}).forEach((synthesisLink1) => {
+            getOrDefaultLink({id: id2, level: nextLevel}).forEach((synthesisLink2) => {
+              const materials = [...synthesisLink1.materials, ...synthesisLink2.materials];
+              const mIds = [...materialIds];
+              const depleteIds = [];
 
-    let depleteIds = [];
-    let exist1 = false;
-    let exist2 = false;
-    if (materialIds.includes(id1)) {
-      materialIds.splice(materialIds.indexOf(id1), 1);
-      depleteIds.push(id1);
-      exist1 = true;
-    }
-    if (materialIds.includes(id2)) {
-      materialIds.splice(materialIds.indexOf(id2), 1);
-      depleteIds.push(id2);
-      exist2 = true;
-    }
+              const k = materials.reduce((k, mId) => {
+                if (!mIds.includes(mId)) {
+                  return k;
+                }
+                depleteIds.push(mId);
+                mIds.splice(mIds.indexOf(mId), 1);
+                return k + 1;
+              }, 0) / materials.length;
 
-    const calculateRoutes = [];
-    const nextLevelSynthesisRoutes = levelSynthesisInfosMap[nextLevel] || {};
-    const synthesisList1 = nextLevelSynthesisRoutes[id1] || [false];
-    const synthesisList2 = nextLevelSynthesisRoutes[id2] || [false];
-    for (let i1 in synthesisList1) {
-      const item1 = synthesisList1[i1];
-      for (let i2 in synthesisList2) {
-        const item2 = synthesisList2[i2];
+              if (k <= 0) {
+                return;
+              }
 
-        let lackIds = [];
-        const mIds = [...materialIds];
-        let dIds = [...depleteIds];
-        let k = 0;
-
-        let r1 = SynthesisCalculator._calculateSynthesisRoute2({
-          id: id1,
-          exist: exist1,
-          item: item1,
-          levelSynthesisInfosMap,
-          materialIds: mIds,
-          depleteIds: dIds,
-          nextLevel,
-          allowLack,
-          lackIds
+              const lackIds = [];
+              materials.forEach(id => {
+                if (!materialIds.includes(id)) {
+                  lackIds.push(id);
+                }
+              })
+              synthesisLinks.push({
+                tId: id,
+                level,
+                k,
+                depleteIds,
+                lackIds,
+                depth: 1 + (synthesisLink1.depth / 2) + (synthesisLink2.depth / 2),
+                synthesisLink1,
+                synthesisLink2,
+                materials
+              });
+            });
+          });
         });
-        if (r1) {
-          k += r1.k;
-        }
-
-        let r2 = SynthesisCalculator._calculateSynthesisRoute2({
-          id: id2,
-          exist: exist2,
-          item: item2,
-          levelSynthesisInfosMap,
-          materialIds: mIds,
-          depleteIds: dIds,
-          nextLevel,
-          allowLack,
-          lackIds
-        });
-        if (r2) {
-          k += r2.k;
-        }
-
-        if (!allowLack && k < 2) {
+        SynthesisCalculator.prioritySort(synthesisLinks);
+      }
+    }
+    if (targetLevel === '4') {
+      for (let id of materialIds) {
+        if (SynthesisCalculator.getIdLevel(id) !== '3') {
           continue;
         }
-
-        calculateRoutes.push({
-          k,
-          routes: [r1, r2],
-          routeDepth: Math.max(r1?.routeDepth, r2?.routeDepth),
-          depleteIds: dIds,
-          lackIds,
-        })
+        getOrDefaultLink({id, level: targetLevel});
       }
     }
-    SynthesisCalculator.prioritySort(calculateRoutes);
-    if (calculateRoutes[0]) {
-      calculateRoutes[0].synthesisInfo = synthesisInfo;
+    for (let id in levelSynthesisInfosMap[targetLevel]) {
+      const level = SynthesisCalculator.verifyLevel(targetLevel - 1);
+      levelSynthesisInfosMap[targetLevel][id]?.forEach(synthesisInfo => {
+        getOrDefaultLink({id: synthesisInfo.CharacterDesignId1, level});
+        getOrDefaultLink({id: synthesisInfo.CharacterDesignId2, level});
+      })
     }
-    return calculateRoutes[0];
+    return allSynthesisLinks
+  },
+  /**
+   *
+   * @param {IdSynthesisLinksMap} allSynthesisLinks
+   * @param {Id[]} materialIds
+   * @param {SynthesisInfo} synthesisInfo
+   * @param {boolean} allowLack
+   * @returns {CalculateSynthesisLinkInfo}
+   */
+  calculateSynthesisLink({
+                           allSynthesisLinks,
+                           materialIds,
+                           synthesisInfo,
+                           allowLack = true,
+                         }) {
+
+    const id1 = synthesisInfo.CharacterDesignId1;
+    const id2 = synthesisInfo.CharacterDesignId2;
+    /**
+     * @type {CalculateSynthesisLinkInfo}
+     */
+    const calculateInfo = {
+      k: -1,
+      depth: 0
+    }
+
+    for (const synthesisLink1 of allSynthesisLinks[id1] || []) {
+      let end = false;
+      for (const synthesisLink2 of allSynthesisLinks[id2] || []) {
+        const mIds = [...materialIds];
+        const depleteIds = [];
+
+        const _reduce = (k, mId) => {
+          if (!mIds.includes(mId)) {
+            return k;
+          }
+          depleteIds.push(mId);
+          mIds.splice(mIds.indexOf(mId), 1);
+          return k + 1;
+        }
+
+        let k = synthesisLink1.materials.reduce(_reduce, 0) / synthesisLink1.materials.length;
+        k += synthesisLink2.materials.reduce(_reduce, 0) / synthesisLink2.materials.length;
+        let depth = (synthesisLink1.depth / 2) + (synthesisLink2.depth / 2);
+
+
+        if ((!allowLack && k === 2) || SynthesisCalculator.prioritySortFn(calculateInfo, {k, depth, depleteIds}) > 0) {
+          calculateInfo.k = k;
+          calculateInfo.depth = depth;
+          calculateInfo.depleteIds = depleteIds;
+          calculateInfo.synthesisLink1 = synthesisLink1;
+          calculateInfo.synthesisLink2 = synthesisLink2;
+          if (k >= 2) {
+            end = true;
+            break;
+          }
+        }
+      }
+      if (end) {
+        break;
+      }
+    }
+
+    if (calculateInfo.k === -1) {
+      return calculateInfo;
+    }
+
+    if (calculateInfo.k < 2) {
+      calculateInfo.lackIds = [];
+      calculateInfo.synthesisLink1.materials.forEach(id => {
+        if (!materialIds.includes(id)) {
+          calculateInfo.lackIds.push(id);
+        }
+      })
+      calculateInfo.synthesisLink2.materials.forEach(id => {
+        if (!materialIds.includes(id)) {
+          calculateInfo.lackIds.push(id);
+        }
+      })
+    }
+    return calculateInfo;
   },
   /**
    *
    * @param {string} targetName
    * @param {string[]} materialNames
    * @param {Level} minimumLevel
-   * @returns {null|SynthesisRouteInfo[]}
+   * @returns {Promise<null|CalculateSynthesisLinkInfo[]>}
    */
-  async calculate({targetName, materialNames = [], minimumLevel = 3}) {
-    const {levelIdsMap, targetId, materialIds} = SynthesisCalculator.handleLevelJson({targetName, materialNames})
+  _calculate({targetName, materialNames, minimumLevel}) {
+    return SynthesisCalculator.getTinypool().run({
+      targetName,
+      materialNames,
+      minimumLevel,
+    }, {name: 'calculate'});
+  },
+  /**
+   *
+   * @param {string} targetName
+   * @param {string[]} materialNames
+   * @param {Level} minimumLevel
+   * @returns {null|CalculateSynthesisLinkInfo[]}
+   */
+  calculate({targetName, materialNames = [], minimumLevel = '3'}) {
+    const materialIds = SynthesisCalculator.namesToIds(materialNames);
     if (materialIds.length < 2) {
       return null;
     }
+    const [targetId] = SynthesisCalculator.namesToIds([targetName]);
 
-    let targetLevel;
-    for (let level in levelIdsMap) {
-      if (levelIdsMap[level].includes(targetId)) {
-        targetLevel = level;
-      }
-    }
-    if (targetLevel === 6) {
+    let targetLevel = SynthesisCalculator.getIdLevel(targetId)
+    if (targetLevel === '6') {
       return null;
     }
-    const computeLevel = SynthesisCalculator.verifyLevel(targetLevel - 1);
-
 
     const allLevelSynthesisInfosMap = SynthesisCalculator.calculateAll({
       targetId,
       targetLevel,
       minimumLevel
     });
-
     if (!allLevelSynthesisInfosMap) {
       return null;
     }
@@ -354,119 +425,101 @@ const SynthesisCalculator = {
       levelSynthesisInfosMap: allLevelSynthesisInfosMap
     });
 
-    const taskList = possibilityLevelSynthesisInfosMap[targetLevel][targetId].map(synthesisInfo => SynthesisCalculator.calculateSynthesisRoute({
+    const allSynthesisLinks = SynthesisCalculator.handleSynthesisLinks({
+      targetLevel,
       levelSynthesisInfosMap: possibilityLevelSynthesisInfosMap,
-      synthesisInfo,
-      materialIds: [...materialIds],
-      allowLack: true,
-      nextLevel: computeLevel
-    }));
-    const targetSynthesisRoutes = await Promise.all(taskList);
-    SynthesisCalculator.prioritySort(targetSynthesisRoutes);
-    return targetSynthesisRoutes;
+      materialIds,
+    });
+
+    const calculateSynthesisLinkInfos = possibilityLevelSynthesisInfosMap[targetLevel][targetId].map(synthesisInfo =>
+      SynthesisCalculator.calculateSynthesisLink({
+        allSynthesisLinks,
+        materialIds,
+        synthesisInfo,
+      })
+    );
+    SynthesisCalculator.prioritySort(calculateSynthesisLinkInfos);
+    return calculateSynthesisLinkInfos;
   },
   /**
    *
-   * @param {Level} level
+   * @param {Level|number} level
    * @return {Level}
    */
   verifyLevel(level) {
     if (level > 7) {
-      level = 7;
-    } else if (level === 6) {
-      level = 5;
+      level = '7';
+    } else if (level + '' === '6') {
+      level = '5';
     }
-    return level
+    return level + '';
   },
   /**
    *
-   * @param {SynthesisRouteInfo} synthesisRouteInfo
-   * @returns {BeautifySynthesisRouteInfo}
+   * @param {SynthesisLink} synthesisLink
+   * @return {String}
    */
-  beautifySynthesisRouteInfo(synthesisRouteInfo) {
-    const bItem = JSON.parse(JSON.stringify(synthesisRouteInfo));
-    bItem.targetName = allJson[synthesisRouteInfo?.synthesisInfo.ToCharacterDesignId]?.name;
-    bItem.name1 = allJson[synthesisRouteInfo?.synthesisInfo.CharacterDesignId1]?.name;
-    bItem.name2 = allJson[synthesisRouteInfo?.synthesisInfo.CharacterDesignId2]?.name;
-    bItem.depleteNames = synthesisRouteInfo.depleteIds?.map(id => allJson[id]?.name);
-    bItem.lackNames = synthesisRouteInfo.lackIds?.map(id => allJson[id]?.name);
-    return bItem;
-  },
-  formatSynthesisRouteInfo2({beautifyInfo, nextLevel, index}) {
-    let content = beautifyInfo[`name${index + 1}`];
-    if (!beautifyInfo?.routes?.[index]) {
+  formatSynthesisLink2({synthesisLink}) {
+    let content = allJson[synthesisLink.tId]?.name;
+    if (synthesisLink.materials.length < 2) {
       return content;
     }
-    if (!beautifyInfo.routes[index].exist) {
-      content += `(${nextLevel}`;
-      content += SynthesisCalculator.formatSynthesisRouteInfo({
-        synthesisRouteInfo: beautifyInfo.routes[index],
-        level: nextLevel
-      });
-      content += `${nextLevel})`;
-    }
+    content += `(${synthesisLink.level - 1}`
+    content += SynthesisCalculator.formatSynthesisLink({synthesisLink});
+    content += `${synthesisLink.level - 1})`
     return content;
   },
   /**
    *
-   * @param {SynthesisRouteInfo} synthesisRouteInfo
-   * @param {Level} level
+   * @param {SynthesisLink|CalculateSynthesisLinkInfo} synthesisLink
+   * @return {String}
    */
-  formatSynthesisRouteInfo({synthesisRouteInfo, level}) {
-    level = SynthesisCalculator.verifyLevel(level);
-    let beautifyInfo = SynthesisCalculator.beautifySynthesisRouteInfo(synthesisRouteInfo);
-    let routes = [...synthesisRouteInfo.routes];
-    const r = routes?.[1]?.routeDepth < routes?.[0]?.routeDepth;
+  formatSynthesisLink({synthesisLink}) {
+    let synthesisLink1;
+    let synthesisLink2;
+    if ((synthesisLink.synthesisLink1?.depth || 0) < (synthesisLink.synthesisLink2?.depth || 0)) {
+      synthesisLink1 = synthesisLink.synthesisLink1;
+      synthesisLink2 = synthesisLink.synthesisLink2;
+    } else {
+      synthesisLink1 = synthesisLink.synthesisLink2;
+      synthesisLink2 = synthesisLink.synthesisLink1;
+    }
     let content = "";
-    content += SynthesisCalculator.formatSynthesisRouteInfo2({
-      index: r ? 1 : 0, beautifyInfo, nextLevel: level - 1
-    });
+    content += SynthesisCalculator.formatSynthesisLink2({synthesisLink: synthesisLink1});
     content += '✨'
-    content += SynthesisCalculator.formatSynthesisRouteInfo2({
-      index: r ? 0 : 1, beautifyInfo, nextLevel: level - 1
-    });
+    content += SynthesisCalculator.formatSynthesisLink2({synthesisLink: synthesisLink2});
     return content;
   },
   /**
    *
-   * @param {SynthesisRouteInfo[]} synthesisRouteInfos
+   * @param {CalculateSynthesisLinkInfo[]} calculateSynthesisLinkInfos
    * @param {number} showMax
    * @returns {string}
    */
-  format({synthesisRouteInfos = [], showMax = 10}) {
-    if (!synthesisRouteInfos || synthesisRouteInfos.length < 1) {
+  format({calculateSynthesisLinkInfos, showMax = 10}) {
+    if (!calculateSynthesisLinkInfos || calculateSynthesisLinkInfos.length < 1) {
       return "no result\n";
     }
     if (showMax > 30) {
-      showMax = 60;
-    }
-
-    let level;
-    for (let l in levelJson) {
-      if (levelJson[l].find(item => item.id === synthesisRouteInfos[0].synthesisInfo.ToCharacterDesignId)) {
-        level = l - 1;
-        break
-      }
+      showMax = 30;
     }
 
     let content = '';
-    for (let i = 0; i < synthesisRouteInfos.length && i < showMax; i++) {
-      const synthesisRouteInfo = synthesisRouteInfos[i];
-      let beautifySynthesisRouteInfo = SynthesisCalculator.beautifySynthesisRouteInfo(synthesisRouteInfo);
-      content += '👪 ';
-      content += SynthesisCalculator.formatSynthesisRouteInfo({
-        synthesisRouteInfo,
-        level
+    for (let i = 0; i < calculateSynthesisLinkInfos.length && i < showMax; i++) {
+      const info = calculateSynthesisLinkInfos[i];
+      content += ' 👪 ';
+      content += SynthesisCalculator.formatSynthesisLink({
+        synthesisLink: info,
       })
-      if (beautifySynthesisRouteInfo.lackNames && beautifySynthesisRouteInfo.lackNames.length > 0) {
-        content += `😡 ${beautifySynthesisRouteInfo.lackNames.join(', ')}`
+      if (info.lackIds?.length > 0) {
+        content += `😡 ${info.lackIds.map(id => allJson[id]?.name).join(', ')}`
       }
       content += `\n`;
     }
-
     return content;
-  }
+
+  },
 }
 
 export default SynthesisCalculator;
-export const _calculateSynthesisRoute = SynthesisCalculator._calculateSynthesisRoute
+export const calculate = SynthesisCalculator.calculate
