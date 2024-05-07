@@ -69,7 +69,7 @@ const PossibilityCalculator = {
     const possessLevelSynthesisInfosMap = {};
 
     let levelIndex = 1;
-    while (levelIndex < maxLevel) {
+    while (levelIndex <= maxLevel) {
       let nextLevel = levelIndex;
       nextLevel += nextLevel === 5 ? 2 : 1;
 

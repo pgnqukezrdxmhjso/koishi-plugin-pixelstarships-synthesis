@@ -336,6 +336,9 @@ const SynthesisCalculator = {
         k += synthesisLink2.materials.reduce(_reduce, 0) / synthesisLink2.materials.length;
         let depth = (synthesisLink1.depth / 2) + (synthesisLink2.depth / 2);
 
+        if (id1 === '407' && id2 === '260' || id1 === '260' && id2 === '407') {
+          console.log()
+        }
 
         if ((!allowLack && k === 2) || SynthesisCalculator.prioritySortFn(calculateInfo, {k, depth, depleteIds}) > 0) {
           calculateInfo.k = k;
@@ -359,17 +362,17 @@ const SynthesisCalculator = {
     }
 
     if (calculateInfo.k < 2) {
+      const mIds = [...materialIds];
       calculateInfo.lackIds = [];
-      calculateInfo.synthesisLink1.materials.forEach(id => {
-        if (!materialIds.includes(id)) {
-          calculateInfo.lackIds.push(id);
-        }
-      })
-      calculateInfo.synthesisLink2.materials.forEach(id => {
-        if (!materialIds.includes(id)) {
-          calculateInfo.lackIds.push(id);
-        }
-      })
+      ([calculateInfo.synthesisLink1, calculateInfo.synthesisLink2]).forEach(synthesisLink =>
+        synthesisLink.materials.forEach(id => {
+          if (!mIds.includes(id)) {
+            calculateInfo.lackIds.push(id);
+          } else {
+            mIds.splice(mIds.indexOf(id), 1);
+          }
+        })
+      )
     }
     return calculateInfo;
   },
