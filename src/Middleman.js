@@ -1,4 +1,3 @@
-const PossibilityCalculator = require("./PossibilityCalculator.js");
 const SynthesisCalculator = require("./SynthesisCalculator.js");
 const S = {
   calculating: false,
@@ -21,8 +20,9 @@ const S = {
     }
   },
   synthesis({session, options}, target, material) {
+    const targetNames = S.splitMaterial({material: target, options});
     const materialNames = S.splitMaterial({material, options});
-    const errorNames = SynthesisCalculator.verifyNames(materialNames);
+    const errorNames = SynthesisCalculator.verifyNames([...targetNames, ...materialNames]);
     if (errorNames.length > 0) {
       session.send('wrong name:' + errorNames.join(', '));
       return;
@@ -32,11 +32,11 @@ const S = {
       f: () => {
         const startTime = Date.now();
         const content = SynthesisCalculator.format({
-          calculateSynthesisLinkInfos: SynthesisCalculator.calculate({
-            targetName: target,
+          showMax: options.showMax,
+          levelCalculateSynthesisLinkInfosMap: SynthesisCalculator.calculate({
+            targetNames: targetNames,
             materialNames,
           }),
-          showMax: options.showMax
         });
         session.send(content + (Date.now() - startTime) / 1000 + 's');
       }
@@ -53,12 +53,13 @@ const S = {
       session,
       f: () => {
         const startTime = Date.now();
-        const content = PossibilityCalculator.format({
-          levelCalculateSynthesisLinkInfos: PossibilityCalculator.calculate({
-            materialNames,
-            targetLevel: options.targetLevel,
-          }),
+        const content = SynthesisCalculator.format({
           showMax: options.showMax,
+          levelCalculateSynthesisLinkInfosMap: SynthesisCalculator.calculate({
+            targetLevel: options.targetLevel,
+            materialNames,
+            allowLack: false,
+          }),
         });
         session.send(content + (Date.now() - startTime) / 1000 + 's');
       }

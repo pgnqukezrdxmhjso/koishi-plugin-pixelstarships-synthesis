@@ -76,7 +76,7 @@
  */
 
 /**
- * @typedef {Object.<Id, CalculateSynthesisLinkInfo[]>} LevelCalculateSynthesisLinkInfos
+ * @typedef {Object.<Level, Object.<Id, CalculateSynthesisLinkInfo[]>>} LevelCalculateSynthesisLinkInfosMap
  */
 
 /**

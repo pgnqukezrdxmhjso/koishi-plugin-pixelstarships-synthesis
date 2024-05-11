@@ -66,7 +66,7 @@ const SynthesisCalculator = {
   namesToIds(names) {
     const nameMap = SynthesisCalculator.getNameMap();
     const ids = [];
-    names.forEach(name => {
+    names?.forEach(name => {
       if (nameMap[name]) {
         ids.push(nameMap[name].id)
       }
@@ -90,75 +90,39 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {Level} targetId
-   * @param {Level} targetLevel
-   * @param {Level} minimumLevel
-   * @returns {LevelSynthesisInfosMap}
-   */
-  calculateAll({targetId, targetLevel, minimumLevel}) {
-    const targetSynthesisList = synthesisJson[targetId];
-    if (!targetSynthesisList) {
-      return null;
-    }
-
-    /**
-     * @type {LevelSynthesisInfosMap}
-     */
-    const levelSynthesisInfosMap = {[targetLevel]: {[targetId]: targetSynthesisList}};
-
-    let nextLevel;
-    for (let level = targetLevel; SynthesisCalculator.verifyLevel(level - 1) > minimumLevel; level = nextLevel) {
-      nextLevel = SynthesisCalculator.verifyLevel(level - 1);
-      const currentSynthesisInfosMap = levelSynthesisInfosMap[level];
-      levelSynthesisInfosMap[nextLevel] = {};
-      const nextSynthesisInfosMap = levelSynthesisInfosMap[nextLevel];
-
-      for (const id in currentSynthesisInfosMap) {
-        currentSynthesisInfosMap[id].forEach(synthesisInfo => {
-          const id1 = synthesisInfo.CharacterDesignId1;
-          const id2 = synthesisInfo.CharacterDesignId2;
-          let synthesisList = synthesisJson[id1];
-          if (!nextSynthesisInfosMap[id1] && synthesisList) {
-            nextSynthesisInfosMap[id1] = synthesisList;
-          }
-          synthesisList = synthesisJson[id2];
-          if (!nextSynthesisInfosMap[id2] && synthesisList) {
-            nextSynthesisInfosMap[id2] = synthesisList;
-          }
-        })
-      }
-    }
-    return levelSynthesisInfosMap;
-  },
-  /**
-   *
    * @param {Id[]} materialIds
-   * @param {LevelSynthesisInfosMap} levelSynthesisInfosMap
+   * @param {boolean} allowLack
    * @returns {LevelSynthesisInfosMap}
    */
-  calculatePossibility({materialIds, levelSynthesisInfosMap}) {
-    const levels = [];
-    for (let level in levelSynthesisInfosMap) {
-      levels.push(level);
-    }
+  calculatePossibility({materialIds, allowLack = true}) {
+    const levels = Object.keys(levelJson);
     levels.sort((a, b) => a - b);
 
     const newLevelSynthesisInfosMap = {};
     const newPossessIds = [...materialIds];
     levels.forEach(level => {
-      const synthesisInfosMap = levelSynthesisInfosMap[level];
+      const levelInfos = levelJson[level];
       const newSynthesisInfosMap = {};
-      for (const id in synthesisInfosMap) {
-        const synthesisInfos = synthesisInfosMap[id];
+      for (let levelInfo of levelInfos) {
+        const synthesisInfos = synthesisJson[levelInfo.id];
+        if (!synthesisInfos) {
+          continue;
+        }
         const newSynthesisInfos = [];
         for (const synthesisInfo of synthesisInfos) {
-          if (newPossessIds.includes(synthesisInfo.CharacterDesignId1) || newPossessIds.includes(synthesisInfo.CharacterDesignId2)) {
-            newSynthesisInfos.push(synthesisInfo);
+          if (allowLack) {
+            if (newPossessIds.includes(synthesisInfo.CharacterDesignId1) || newPossessIds.includes(synthesisInfo.CharacterDesignId2)) {
+              newSynthesisInfos.push(synthesisInfo);
+            }
+          } else {
+            if (newPossessIds.includes(synthesisInfo.CharacterDesignId1) && newPossessIds.includes(synthesisInfo.CharacterDesignId2)) {
+              newSynthesisInfos.push(synthesisInfo);
+            }
           }
         }
         if (newSynthesisInfos.length > 0) {
-          newSynthesisInfosMap[id] = newSynthesisInfos;
-          newPossessIds.push(id);
+          newSynthesisInfosMap[levelInfo.id] = newSynthesisInfos;
+          newPossessIds.push(levelInfo.id);
         }
       }
       newLevelSynthesisInfosMap[level] = newSynthesisInfosMap;
@@ -195,13 +159,12 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {Level} targetLevel
    * @param {LevelSynthesisInfosMap} levelSynthesisInfosMap
    * @param {Id[]} materialIds
    * @param {boolean} allowLack
    * @return {IdSynthesisLinksMap}
    */
-  handleSynthesisLinks({targetLevel, levelSynthesisInfosMap, materialIds, allowLack = true}) {
+  handleSynthesisLinks({levelSynthesisInfosMap, materialIds, allowLack = true}) {
     /**
      * @type {IdSynthesisLinksMap}
      */
@@ -218,7 +181,7 @@ const SynthesisCalculator = {
       }
       return allSynthesisLinks[id];
     }
-    for (let l = 4; l <= 5 && l < targetLevel; l++) {
+    for (let l = 4; l <= 5; l++) {
       const level = l + '';
       const nextLevel = SynthesisCalculator.verifyLevel(level - 1);
       for (let id in levelSynthesisInfosMap[level]) {
@@ -268,27 +231,16 @@ const SynthesisCalculator = {
         SynthesisCalculator.prioritySort(synthesisLinks);
       }
     }
-    if (targetLevel === '4') {
-      for (let id of materialIds) {
-        if (SynthesisCalculator.getIdLevel(id) !== '3') {
-          continue;
-        }
-        getOrDefaultLink({id, level: targetLevel});
-      }
+    for (let id of materialIds) {
+      getOrDefaultLink({id, level: SynthesisCalculator.getIdLevel(id)});
     }
-    for (let id in levelSynthesisInfosMap[targetLevel]) {
-      const level = SynthesisCalculator.verifyLevel(targetLevel - 1);
-      levelSynthesisInfosMap[targetLevel][id]?.forEach(synthesisInfo => {
-        getOrDefaultLink({id: synthesisInfo.CharacterDesignId1, level});
-        getOrDefaultLink({id: synthesisInfo.CharacterDesignId2, level});
-      })
-    }
+
     for (let id in allSynthesisLinks) {
       const synthesisLinks = allSynthesisLinks[id];
-      if ((synthesisLinks?.length || 0) < 50) {
+      if ((synthesisLinks?.length || 0) < 30) {
         continue;
       }
-      allSynthesisLinks[id] = allSynthesisLinks[id].slice(0, 50)
+      allSynthesisLinks[id] = allSynthesisLinks[id].slice(0, 30);
     }
     return allSynthesisLinks
   },
@@ -316,7 +268,6 @@ const SynthesisCalculator = {
       k: -1,
       depth: 0
     }
-
     for (const synthesisLink1 of allSynthesisLinks[id1] || []) {
       let end = false;
       for (const synthesisLink2 of allSynthesisLinks[id2] || []) {
@@ -335,10 +286,6 @@ const SynthesisCalculator = {
         let k = synthesisLink1.materials.reduce(_reduce, 0) / synthesisLink1.materials.length;
         k += synthesisLink2.materials.reduce(_reduce, 0) / synthesisLink2.materials.length;
         let depth = (synthesisLink1.depth / 2) + (synthesisLink2.depth / 2);
-
-        if (id1 === '407' && id2 === '260' || id1 === '260' && id2 === '407') {
-          console.log()
-        }
 
         if ((!allowLack && k === 2) || SynthesisCalculator.prioritySortFn(calculateInfo, {k, depth, depleteIds}) > 0) {
           calculateInfo.k = k;
@@ -378,52 +325,65 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {string} targetName
+   * @param {Level} targetLevel
+   * @param {string[]} targetNames
    * @param {string[]} materialNames
-   * @param {Level} minimumLevel
-   * @returns {null|CalculateSynthesisLinkInfo[]}
+   * @param {boolean} allowLack
+   * @returns {null|LevelCalculateSynthesisLinkInfosMap}
    */
-  calculate({targetName, materialNames = [], minimumLevel = '3'}) {
+  calculate({targetLevel = '7', targetNames, materialNames = [], allowLack = true}) {
+    targetLevel = SynthesisCalculator.verifyLevel(targetLevel);
+    let targetIds;
+    if (targetNames?.length > 0) {
+      targetIds = SynthesisCalculator.namesToIds(targetNames);
+    } else {
+      targetIds = levelJson[targetLevel]?.map(levelInfo => levelInfo.id);
+    }
+    if (!targetIds || targetIds.length < 1) {
+      return null;
+    }
+
     const materialIds = SynthesisCalculator.namesToIds(materialNames);
     if (materialIds.length < 2) {
-      return null;
-    }
-    const [targetId] = SynthesisCalculator.namesToIds([targetName]);
-
-    let targetLevel = SynthesisCalculator.getIdLevel(targetId)
-    if (targetLevel === '6') {
-      return null;
-    }
-
-    const allLevelSynthesisInfosMap = SynthesisCalculator.calculateAll({
-      targetId,
-      targetLevel,
-      minimumLevel
-    });
-    if (!allLevelSynthesisInfosMap) {
       return null;
     }
 
     const possibilityLevelSynthesisInfosMap = SynthesisCalculator.calculatePossibility({
       materialIds,
-      levelSynthesisInfosMap: allLevelSynthesisInfosMap
+      allowLack,
     });
 
     const allSynthesisLinks = SynthesisCalculator.handleSynthesisLinks({
-      targetLevel,
       levelSynthesisInfosMap: possibilityLevelSynthesisInfosMap,
       materialIds,
+      allowLack,
     });
 
-    const calculateSynthesisLinkInfos = possibilityLevelSynthesisInfosMap[targetLevel][targetId].map(synthesisInfo =>
-      SynthesisCalculator.calculateSynthesisLink({
-        allSynthesisLinks,
-        materialIds,
-        synthesisInfo,
+    const levelCalculateSynthesisLinkInfos = {};
+    for (let targetId of targetIds) {
+      const level = SynthesisCalculator.getIdLevel(targetId);
+      const calculateSynthesisLinkInfos = [];
+      (allowLack ? possibilityLevelSynthesisInfosMap[level]?.[targetId] : (synthesisJson[targetId] || []))?.forEach(synthesisInfo => {
+        const res = SynthesisCalculator.calculateSynthesisLink({
+          allSynthesisLinks,
+          materialIds,
+          synthesisInfo,
+          allowLack,
+        });
+        if (res && res.k >= (allowLack ? 0 : 2)) {
+          calculateSynthesisLinkInfos.push(res);
+        }
       })
-    );
-    SynthesisCalculator.prioritySort(calculateSynthesisLinkInfos);
-    return calculateSynthesisLinkInfos;
+      if (calculateSynthesisLinkInfos.length > 0) {
+        if (!levelCalculateSynthesisLinkInfos[level]) {
+          levelCalculateSynthesisLinkInfos[level] = {};
+        }
+        SynthesisCalculator.prioritySort(calculateSynthesisLinkInfos);
+        levelCalculateSynthesisLinkInfos[level][targetId] = calculateSynthesisLinkInfos;
+      }
+    }
+
+    return levelCalculateSynthesisLinkInfos;
   },
   /**
    *
@@ -476,32 +436,43 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {CalculateSynthesisLinkInfo[]} calculateSynthesisLinkInfos
+   * @param {LevelCalculateSynthesisLinkInfosMap} levelCalculateSynthesisLinkInfosMap
    * @param {number} showMax
    * @returns {string}
    */
-  format({calculateSynthesisLinkInfos, showMax = 10}) {
-    if (!calculateSynthesisLinkInfos || calculateSynthesisLinkInfos.length < 1) {
-      return "no result\n";
-    }
+  format({levelCalculateSynthesisLinkInfosMap, showMax = 10}) {
     if (showMax > 30) {
       showMax = 30;
     }
 
-    let content = '';
-    for (let i = 0; i < calculateSynthesisLinkInfos.length && i < showMax; i++) {
-      const info = calculateSynthesisLinkInfos[i];
-      content += ' 👪 ';
-      content += SynthesisCalculator.formatSynthesisLink({
-        synthesisLink: info,
-      })
-      if (info.lackIds?.length > 0) {
-        content += `😡 ${info.lackIds.map(id => allJson[id]?.name).join(', ')}`
-      }
-      content += `\n`;
+    const levels = Object.keys(levelCalculateSynthesisLinkInfosMap || {});
+    if (levels.length < 1) {
+      return "no result\n";
     }
-    return content;
+    levels.sort((a, b) => b - a);
 
+    let content = '';
+    for (let level of levels) {
+      const calculateSynthesisLinkInfosMap = levelCalculateSynthesisLinkInfosMap[level];
+      for (let id in calculateSynthesisLinkInfosMap) {
+        const calculateSynthesisLinkInfos = calculateSynthesisLinkInfosMap[id];
+        content += ` 🌠 ${allJson[id]?.name}`;
+        content += showMax === 1 ? '' : '\n';
+        for (let i = 0; i < calculateSynthesisLinkInfos.length && i < showMax; i++) {
+          const info = calculateSynthesisLinkInfos[i];
+          content += ' 👪 ';
+          content += SynthesisCalculator.formatSynthesisLink({
+            synthesisLink: info,
+          })
+          if (info.lackIds?.length > 0) {
+            content += `😡 ${info.lackIds.map(id => allJson[id]?.name).join(', ')}`
+          }
+          content += `\n`;
+        }
+      }
+    }
+
+    return content;
   },
 }
 

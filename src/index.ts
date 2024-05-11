@@ -11,7 +11,7 @@ export const Config: Schema<Config> = Schema.object({})
 
 export function apply(ctx: Context) {
   ctx.command('pixelstarshipsSynthesis <target> <material:text>')
-    .option('showMax', '-m <showMax:number> maximum 60', {fallback: 6})
+    .option('showMax', '-m <showMax:number> maximum 60', {fallback: 5})
     .option('noSpaces', '-n',)
     .action(async (argv, target, material) => {
         if (!target || !material) {
