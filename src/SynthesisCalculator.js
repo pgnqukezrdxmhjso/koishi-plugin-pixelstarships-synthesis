@@ -10,6 +10,7 @@ const levelJson = require("./data/level.json");
  * @type {SynthesisInfoMap}
  */
 const synthesisJson = require("./data/synthesis.json");
+const Strings = require("./utils/Strings");
 
 const SynthesisCalculator = {
   levelIdsMap: null,
@@ -48,45 +49,86 @@ const SynthesisCalculator = {
     return level;
   },
   nameMap: null,
+  nameRMap: null,
+  /**
+   *
+   * @return {Object.<string, RoleInfo>}
+   */
   getNameMap() {
     if (!SynthesisCalculator.nameMap) {
       const nameMap = {};
+      const nameRMap = {};
       for (let id in allJson) {
-        nameMap[allJson[id].name] = allJson[id];
+        const name = allJson[id].name;
+        nameMap[name] = allJson[id];
+        const rName = name.replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, '-');
+        if (rName !== name) {
+          nameRMap[name] = rName;
+        }
       }
       SynthesisCalculator.nameMap = nameMap;
+      SynthesisCalculator.nameRMap = nameRMap;
     }
     return SynthesisCalculator.nameMap;
   },
   /**
    *
-   * @param {string[]} names
+   * @param {string} names
    * @returns {Id[]}
    */
   namesToIds(names) {
+    if (Strings.isEmpty(names)) {
+      return [];
+    }
     const nameMap = SynthesisCalculator.getNameMap();
+    const nameRMap = SynthesisCalculator.nameRMap;
+    for (let name in nameRMap) {
+      names = names.replace(name, nameRMap[name]);
+    }
+
+    const nameList = names.split(/\s*[\s，。；,.;|]\s*/g);
+    const errors = [];
     const ids = [];
-    names?.forEach(name => {
-      if (nameMap[name]) {
-        ids.push(nameMap[name].id)
+    for (const name of nameList) {
+      let id = nameMap[name]?.id;
+      if (id) {
+        ids.push(id);
+        continue;
       }
-    });
+      let ck = 999999;
+      let cName;
+      for (let rName in nameRMap) {
+        const reg = nameRMap[rName];
+        const k = Strings.levenshteinDistance(name, reg);
+        if (k < ck && k < Math.max(name.length, reg.length)) {
+          ck = k;
+          cName = rName;
+        }
+      }
+      for (let n in nameMap) {
+        const k = Strings.levenshteinDistance(name, n);
+        if (k < ck && k < Math.max(name.length, n.length)) {
+          ck = k;
+          cName = n;
+        }
+      }
+      if (cName) {
+        id = nameMap[cName]?.id;
+        if (id) {
+          ids.push(id);
+          continue;
+        }
+      }
+
+      errors.push(name);
+    }
+    if (errors.length > 0) {
+      throw {
+        msg: 'wrong name: ' + errors.join(', '),
+        data: errors
+      };
+    }
     return ids;
-  },
-  /**
-   *
-   * @param {string[]} names
-   * @return {*[]|null}
-   */
-  verifyNames(names) {
-    const nameMap = SynthesisCalculator.getNameMap();
-    const errorNames = []
-    names.forEach(name => {
-      if (!nameMap[name]) {
-        errorNames.push(name);
-      }
-    });
-    return errorNames;
   },
   /**
    *
@@ -326,12 +368,12 @@ const SynthesisCalculator = {
   /**
    *
    * @param {Level} targetLevel
-   * @param {string[]} targetNames
-   * @param {string[]} materialNames
+   * @param {string} targetNames
+   * @param {string} materialNames
    * @param {boolean} allowLack
    * @returns {null|LevelCalculateSynthesisLinkInfosMap}
    */
-  calculate({targetLevel = '7', targetNames, materialNames = [], allowLack = true}) {
+  calculate({targetLevel = '7', targetNames, materialNames, allowLack = true}) {
     targetLevel = SynthesisCalculator.verifyLevel(targetLevel);
     let targetIds;
     if (targetNames?.length > 0) {

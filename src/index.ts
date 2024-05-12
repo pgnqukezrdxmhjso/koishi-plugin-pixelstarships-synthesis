@@ -12,7 +12,6 @@ export const Config: Schema<Config> = Schema.object({})
 export function apply(ctx: Context) {
   ctx.command('pixelstarshipsSynthesis <target> <material:text>')
     .option('showMax', '-m <showMax:number> maximum 60', {fallback: 5})
-    .option('noSpaces', '-n',)
     .action(async (argv, target, material) => {
         if (!target || !material) {
           await argv.session.execute('pixelstarshipsSynthesis -h');
@@ -24,7 +23,6 @@ export function apply(ctx: Context) {
   ctx.command('pixelstarshipsPossibility <material:text>')
     .option('targetLevel', '-t <targetLevel:number> maximum 7', {fallback: 7})
     .option('showMax', '-m <showMax:number> maximum 6', {fallback: 1})
-    .option('noSpaces', '-n <noSpaces:boolean>')
     .action(async (argv, material) => {
         if (!material) {
           await argv.session.execute('pixelstarshipsPossibility -h');

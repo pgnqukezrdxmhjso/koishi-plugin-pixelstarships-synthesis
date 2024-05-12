@@ -1,9 +1,6 @@
 const SynthesisCalculator = require("./SynthesisCalculator.js");
 const S = {
   calculating: false,
-  splitMaterial({material, options}) {
-    return options.noSpaces ? material.split(/\s*[，。；,.;|]\s*/g) : material.split(/\s*[\s，。；,.;|]\s*/g)
-  },
   calculateLock({session, f}) {
     if (S.calculating) {
       session.send('calculating, please wait.');
@@ -13,20 +10,17 @@ const S = {
       S.calculating = true;
       f();
     } catch (e) {
-      session.send('Calculation exception');
-      throw e;
+      if (e?.msg) {
+        session.send(e?.msg);
+      } else {
+        session.send('Calculation exception');
+        throw e;
+      }
     } finally {
       S.calculating = false;
     }
   },
   synthesis({session, options}, target, material) {
-    const targetNames = S.splitMaterial({material: target, options});
-    const materialNames = S.splitMaterial({material, options});
-    const errorNames = SynthesisCalculator.verifyNames([...targetNames, ...materialNames]);
-    if (errorNames.length > 0) {
-      session.send('wrong name:' + errorNames.join(', '));
-      return;
-    }
     S.calculateLock({
       session,
       f: () => {
@@ -34,8 +28,8 @@ const S = {
         const content = SynthesisCalculator.format({
           showMax: options.showMax,
           levelCalculateSynthesisLinkInfosMap: SynthesisCalculator.calculate({
-            targetNames: targetNames,
-            materialNames,
+            targetNames: target,
+            materialNames: material,
           }),
         });
         session.send(content + (Date.now() - startTime) / 1000 + 's');
@@ -43,12 +37,6 @@ const S = {
     })
   },
   possibility({session, options}, material) {
-    const materialNames = S.splitMaterial({material, options});
-    const errorNames = SynthesisCalculator.verifyNames(materialNames);
-    if (errorNames.length > 0) {
-      session.send('wrong name:' + errorNames.join(', '));
-      return;
-    }
     S.calculateLock({
       session,
       f: () => {
@@ -57,7 +45,7 @@ const S = {
           showMax: options.showMax,
           levelCalculateSynthesisLinkInfosMap: SynthesisCalculator.calculate({
             targetLevel: options.targetLevel,
-            materialNames,
+            materialNames: material,
             allowLack: false,
           }),
         });
