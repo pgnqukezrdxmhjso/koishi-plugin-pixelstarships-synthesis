@@ -11,8 +11,36 @@
  * @property {Id} id
  * @property {string} name
  * @property {Object} img
- * @property {Object} msg
+ * @property {RoleInfoMsg} msg
  * @property {Object} bigImg
+ */
+/**
+ * @typedef {Object} RoleInfoMsg
+ * @property {String} GenderType
+ * @property {String} Hp
+ * @property {String} FinalHp
+ * @property {String} Attack
+ * @property {String} FinalAttack
+ * @property {String} Weapon
+ * @property {String} FinalWeapon
+ * @property {String} Science
+ * @property {String} FinalScience
+ * @property {String} Engine
+ * @property {String} FinalEngine
+ * @property {String} WalkingSpeed
+ * @property {String} RunSpeed
+ * @property {String} FireResistance
+ * @property {String} Research
+ * @property {String} FinalResearch
+ * @property {String} Repair
+ * @property {String} FinalRepair
+ * @property {String} Pilot
+ * @property {String} FinalPilot
+ * @property {String} SpecialAbilityArgument
+ * @property {String} SpecialAbilityFinalArgument
+ * @property {String} SpecialAbilityType
+ * @property {String} TrainingCapacity
+ * @property {String} EquipmentMask
  */
 /**
  * @typedef {Object.<Id, RoleInfo>} RoleInfoMap

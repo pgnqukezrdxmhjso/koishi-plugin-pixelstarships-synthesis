@@ -1,5 +1,5 @@
 const SynthesisCalculator = require("../src/SynthesisCalculator");
-(() => {
+(async () => {
 
   let k = 1;
   let tc = 0;
@@ -23,21 +23,25 @@ const SynthesisCalculator = require("../src/SynthesisCalculator");
   // console.log(tc / k);
   // console.log('\n');
 
-  k = 1;
-  tc = 0;
-  for (let i = 0; i < k; i++) {
-    const st = Date.now();
-    const synthesis = SynthesisCalculator.calculate({
-      targetNames: '银傻逼 宇宙的意志 银河精灵',
-      materialNames: '休哈利油,没被感染的海燕,僵尸，僵尸尸尸，僵尸尸尸，僵尸尸尸，圣堂星际女猎手，圣堂星际女猎手，坏叔叔，坏弗拉德，大史莱姆，她她她，灰人艺术大师,程序员文加，董卓，蒂凡尼，薇薇安，虫先生，虫女士。虫女士，麦当劳，麦当劳，易司令，丘比特骑兵'
-    });
-    console.log(SynthesisCalculator.format({
-      levelCalculateSynthesisLinkInfosMap: synthesis,
-      showMax: 5
-    }));
-    console.log(Date.now() - st)
-    tc += Date.now() - st;
-  }
-  console.log(tc / k);
+  // k = 1;
+  // tc = 0;
+  // for (let i = 0; i < k; i++) {
+  //   const st = Date.now();
+  //   const synthesis = SynthesisCalculator.calculate({
+  //     targetNames: '银傻逼 宇宙的意志 银河精灵',
+  //     materialNames: '休哈利油,没被感染的海燕,僵尸，僵尸尸尸，僵尸尸尸，僵尸尸尸，圣堂星际女猎手，圣堂星际女猎手，坏叔叔，坏弗拉德，大史莱姆，她她她，灰人艺术大师,程序员文加，董卓，蒂凡尼，薇薇安，虫先生，虫女士。虫女士，麦当劳，麦当劳，易司令，丘比特骑兵'
+  //   });
+  //   console.log(SynthesisCalculator.format({
+  //     levelCalculateSynthesisLinkInfosMap: synthesis,
+  //     showMax: 5
+  //   }));
+  //   console.log(Date.now() - st)
+  //   tc += Date.now() - st;
+  // }
+  // console.log(tc / k);
 
+  // const t = SynthesisCalculator.showRoleInfo({names: '银河炼金术士 汤姆·阿尔法'})
+  // console.log(t);
+  const r = await SynthesisCalculator.marketList();
+  console.log(r)
 })()

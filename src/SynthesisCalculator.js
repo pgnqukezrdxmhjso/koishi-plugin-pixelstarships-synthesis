@@ -11,6 +11,7 @@ const levelJson = require("./data/level.json");
  */
 const synthesisJson = require("./data/synthesis.json");
 const Strings = require("./utils/Strings");
+const {XMLParser} = require("fast-xml-parser");
 
 const SynthesisCalculator = {
   levelIdsMap: null,
@@ -516,6 +517,95 @@ const SynthesisCalculator = {
 
     return content;
   },
+  SpecialAbilityType: {
+    'DeductReload': '系统骇入',
+    'HealSelfHp': '紧急自救',
+    'HealSameRoomCharacters': '天降甘霖',
+    'AddReload': '紧急加速',
+    'DamageToRoom': '超级拆迁',
+    'HealRoomHp': '紧急修复',
+    'DamageToSameRoomCharacters': '毒气',
+    'None': '无',
+    'DamageToCurrentEnemy': '致命一击',
+    'FireWalk': '烈焰足迹',
+    'Freeze': '冻结冲击',
+    'Bloodlust': '血之渴望',
+    'SetFire': '纵火',
+    'ProtectRoom': '静电护盾',
+    'Invulnerability': '相位闪现'
+  },
+  GenderType: {'Female': '女', 'Male': '男', 'Unknown': '没有'},
+  EquipmentMask: ['头盔', '身体', '腿部', '武器', '饰品', '宠物'],
+  /**
+   *
+   * @param {string} names
+   * @return {string}
+   */
+  showRoleInfo({names}) {
+    const ids = SynthesisCalculator.namesToIds(names);
+    if (ids.length < 1) {
+      return "no result\n";
+    }
+    let content = ''
+    for (let id of ids) {
+      const roleInfo = allJson[id];
+      const msg = roleInfo.msg;
+      content += ` 🌠 ${roleInfo.name}`;
+      const equipmentMask = Number(msg.EquipmentMask || 0).toString(2).split('').reverse();
+      equipmentMask.forEach((mask, i) => {
+        if (mask === `1`) {
+          content += ` ${SynthesisCalculator.EquipmentMask[i]}`
+        }
+      });
+      content += '\n';
+
+      content += ` 技能 ${SynthesisCalculator.SpecialAbilityType[msg.SpecialAbilityType] || msg.SpecialAbilityType}`;
+      content += ` 训练 ${msg.TrainingCapacity}\n`;
+
+      content += ` 生命 ${msg.Hp}/${msg.FinalHp}`;
+      content += ` 攻击 ${msg.Attack}/${msg.FinalAttack}`;
+      content += ` 维修 ${msg.Repair}/${msg.FinalRepair}`;
+      content += ` 能力 ${msg.SpecialAbilityArgument}/${msg.SpecialAbilityFinalArgument}\n`;
+
+      content += ` 导航 ${msg.Pilot}/${msg.FinalPilot}`;
+      content += ` 科技 ${msg.Science}/${msg.FinalScience}`;
+      content += ` 引擎 ${msg.Engine}/${msg.FinalEngine}`;
+      content += ` 武器 ${msg.Weapon}/${msg.FinalWeapon}\n`;
+
+      content += ` 抗性 ${msg.FireResistance}`;
+      content += ` 速度 ${msg.WalkingSpeed}/${msg.RunSpeed}\n`;
+    }
+
+    return content;
+  },
+  async marketList() {
+    const res = await fetch("http://mobileapi.pixship.anjy.net/MessageService/ListActiveMarketplaceMessages5?itemSubType=None&rarity=None&currencyType=Unknown&itemDesignId=0&userId=0&accessToken=12345678-1234-1234-1234-123456789012");
+    const text = await res.text();
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: ""
+    });
+    const json = parser.parse(text);
+    const messages = json?.MessageService?.ListActiveMarketplaceMessages?.Messages.Message;
+    if (!messages || messages.length < 1) {
+      return "no result\n";
+    }
+    let content = '';
+    messages.forEach((message) => {
+      content += message.Message.replace('在卖 ', '');
+      content += ' ';
+      content += message.ActivityArgument
+        .replace('starbux', '票')
+        .replace('gas', '油')
+        .replace('mineral', '矿')
+        .replace(/(\d{4})$/, ',$1');
+      content += ' ';
+      content += message.UserName;
+      content += '\n';
+    });
+
+    return content;
+  }
 }
 
 module.exports = SynthesisCalculator;

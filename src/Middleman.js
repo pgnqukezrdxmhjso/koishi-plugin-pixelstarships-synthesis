@@ -1,14 +1,14 @@
 const SynthesisCalculator = require("./SynthesisCalculator.js");
 const S = {
   calculating: false,
-  calculateLock({session, f}) {
+  async calculateLock({session, f}) {
     if (S.calculating) {
       session.send('calculating, please wait.');
       return;
     }
     try {
       S.calculating = true;
-      f();
+      await f();
     } catch (e) {
       if (e?.msg) {
         session.send(e?.msg);
@@ -21,7 +21,7 @@ const S = {
     }
   },
   synthesis({session, options}, target, material) {
-    S.calculateLock({
+    return S.calculateLock({
       session,
       f: () => {
         const startTime = Date.now();
@@ -32,15 +32,14 @@ const S = {
             materialNames: material,
           }),
         });
-        session.send(content + (Date.now() - startTime) / 1000 + 's');
+        session.send(content);
       }
     })
   },
   possibility({session, options}, material) {
-    S.calculateLock({
+    return S.calculateLock({
       session,
       f: () => {
-        const startTime = Date.now();
         const content = SynthesisCalculator.format({
           showMax: options.showMax,
           levelCalculateSynthesisLinkInfosMap: SynthesisCalculator.calculate({
@@ -49,9 +48,29 @@ const S = {
             allowLack: false,
           }),
         });
-        session.send(content + (Date.now() - startTime) / 1000 + 's');
+        session.send(content);
       }
     })
-  }
+  },
+  showRoleInfo({session, options}, names) {
+    S.calculateLock({
+      session,
+      f: () => {
+        const content = SynthesisCalculator.showRoleInfo({
+          names
+        });
+        session.send(content);
+      }
+    })
+  },
+  marketList({session, options}) {
+    return S.calculateLock({
+      session,
+      f: async () => {
+        const content = await SynthesisCalculator.marketList();
+        session.send(content);
+      }
+    });
+  },
 }
 module.exports = S;
