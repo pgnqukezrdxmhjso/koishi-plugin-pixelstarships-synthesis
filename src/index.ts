@@ -4,12 +4,18 @@ import Middleman from './Middleman.js'
 export const name = 'pixelstarships-synthesis'
 
 export interface Config {
+  messageDeleteTime: number
 }
 
-export const Config: Schema<Config> = Schema.object({})
+export const Config: Schema<Config> = Schema.object({
+  messageDeleteTime: Schema.number().description('message delete time(second,0 means no delete)').default(0),
+});
 
 
-export function apply(ctx: Context) {
+export function apply(ctx: Context, config: Config) {
+  Middleman.config = config;
+  ctx.on('dispose', Middleman.onDispose);
+
   ctx.command('pixelstarships.synthesis <target> <material:text>')
     .option('showMax', '-m <showMax:number> maximum 60', {fallback: 5})
     .action(async (argv, target, material) => {
@@ -42,10 +48,6 @@ export function apply(ctx: Context) {
     );
   ctx.command('pixelstarships.marketList')
     .action(async (argv) => {
-        if (!name) {
-          await argv.session.execute('pixelstarships.marketList -h');
-          return;
-        }
         await Middleman.marketList(argv);
       }
     );
