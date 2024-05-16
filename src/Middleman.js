@@ -67,7 +67,8 @@ const S = {
     return S.calculateLock({
       session,
       getContent: () => SynthesisCalculator.showRoleInfo({
-        names
+        names,
+        diff: options.diff
       })
     })
   },

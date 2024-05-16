@@ -38,6 +38,7 @@ export function apply(ctx: Context, config: Config) {
       }
     );
   ctx.command('pixelstarships.showRoleInfo <name:text>')
+    .option('diff', '-d diff attribute')
     .action(async (argv, name) => {
         if (!name) {
           await argv.session.execute('pixelstarships.showRoleInfo -h');

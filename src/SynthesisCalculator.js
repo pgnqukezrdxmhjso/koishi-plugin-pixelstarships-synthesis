@@ -539,17 +539,38 @@ const SynthesisCalculator = {
   /**
    *
    * @param {string} names
+   * @param {boolean} diff
    * @return {string}
    */
-  showRoleInfo({names}) {
+  showRoleInfo({names, diff = false}) {
     const ids = SynthesisCalculator.namesToIds(names);
     if (ids.length < 1) {
       return "no result\n";
     }
     let content = ''
-    for (let id of ids) {
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
       const roleInfo = allJson[id];
       const msg = roleInfo.msg;
+
+      if (diff && i > 0) {
+        const fMsg = allJson[ids[i - 1]].msg
+        content += '-----------\n';
+        content += ` 生命 ${fMsg.FinalHp - msg.FinalHp}`
+        content += ` 攻击 ${fMsg.FinalAttack - msg.FinalAttack}`
+        content += ` 维修 ${fMsg.FinalRepair - msg.FinalRepair}`
+        content += ` 能力 ${fMsg.SpecialAbilityFinalArgument - msg.SpecialAbilityFinalArgument}\n`
+
+        content += ` 导航 ${fMsg.FinalPilot - msg.FinalPilot}`
+        content += ` 科技 ${fMsg.FinalScience - msg.FinalScience}`
+        content += ` 引擎 ${fMsg.FinalEngine - msg.FinalEngine}`
+        content += ` 武器 ${fMsg.FinalWeapon - msg.FinalWeapon}\n`
+
+        content += ` 抗性 ${fMsg.FireResistance - msg.FireResistance}`
+        content += ` 速度 ${fMsg.WalkingSpeed - msg.WalkingSpeed}/${fMsg.RunSpeed - msg.RunSpeed}\n`
+        content += '-----------\n';
+      }
+
       content += ` 🌠 ${roleInfo.name}`;
       const equipmentMask = Number(msg.EquipmentMask || 0).toString(2).split('').reverse();
       equipmentMask.forEach((mask, i) => {
