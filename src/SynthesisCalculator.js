@@ -12,6 +12,7 @@ const levelJson = require("./data/level.json");
 const synthesisJson = require("./data/synthesis.json");
 const Strings = require("./utils/Strings");
 const {XMLParser} = require("fast-xml-parser");
+const Big = require('big.js');
 
 const SynthesisCalculator = {
   levelIdsMap: null,
@@ -556,18 +557,18 @@ const SynthesisCalculator = {
       if (diff && i > 0) {
         const fMsg = allJson[ids[i - 1]].msg
         content += '-----------\n';
-        content += ` 生命 ${fMsg.FinalHp - msg.FinalHp}`
-        content += ` 攻击 ${fMsg.FinalAttack - msg.FinalAttack}`
-        content += ` 维修 ${fMsg.FinalRepair - msg.FinalRepair}`
-        content += ` 能力 ${fMsg.SpecialAbilityFinalArgument - msg.SpecialAbilityFinalArgument}\n`
+        content += ` 生命 ${new Big(fMsg.FinalHp).minus(msg.FinalHp)}`
+        content += ` 攻击 ${new Big(fMsg.FinalAttack).minus(msg.FinalAttack)}`
+        content += ` 维修 ${new Big(fMsg.FinalRepair).minus(msg.FinalRepair)}`
+        content += ` 能力 ${new Big(fMsg.SpecialAbilityFinalArgument).minus(msg.SpecialAbilityFinalArgument)}\n`
 
-        content += ` 导航 ${fMsg.FinalPilot - msg.FinalPilot}`
-        content += ` 科技 ${fMsg.FinalScience - msg.FinalScience}`
-        content += ` 引擎 ${fMsg.FinalEngine - msg.FinalEngine}`
-        content += ` 武器 ${fMsg.FinalWeapon - msg.FinalWeapon}\n`
+        content += ` 导航 ${new Big(fMsg.FinalPilot).minus(msg.FinalPilot)}`
+        content += ` 科技 ${new Big(fMsg.FinalScience).minus(msg.FinalScience)}`
+        content += ` 引擎 ${new Big(fMsg.FinalEngine).minus(msg.FinalEngine)}`
+        content += ` 武器 ${new Big(fMsg.FinalWeapon).minus(msg.FinalWeapon)}\n`
 
-        content += ` 抗性 ${fMsg.FireResistance - msg.FireResistance}`
-        content += ` 速度 ${fMsg.WalkingSpeed - msg.WalkingSpeed}/${fMsg.RunSpeed - msg.RunSpeed}\n`
+        content += ` 抗性 ${new Big(fMsg.FireResistance).minus(msg.FireResistance)}`
+        content += ` 速度 ${new Big(fMsg.WalkingSpeed).minus(msg.WalkingSpeed)}/${new Big(fMsg.RunSpeed).minus(msg.RunSpeed)}\n`
         content += '-----------\n';
       }
 

@@ -40,7 +40,7 @@ const SynthesisCalculator = require("../src/SynthesisCalculator");
   // }
   // console.log(tc / k);
 
-  const t = SynthesisCalculator.showRoleInfo({names: '银河炼金术士 汤姆·阿尔法', diff: true})
+  const t = SynthesisCalculator.showRoleInfo({names: '余烬女 粉红哥斯拉', diff: true})
   console.log(t);
   // const r = await SynthesisCalculator.marketList();
   // console.log(r)
