@@ -39,11 +39,9 @@ export function apply(ctx: Context, config: Config) {
     );
   ctx.command('pixelstarships.showRoleInfo <name:text>')
     .option('diff', '-d diff attribute')
+    .option('isSearch', '-s search mode')
+    .option('sort', '-o <sort:string> sort attribute')
     .action(async (argv, name) => {
-        if (!name) {
-          await argv.session.execute('pixelstarships.showRoleInfo -h');
-          return;
-        }
         await Middleman.showRoleInfo(argv, name);
       }
     );

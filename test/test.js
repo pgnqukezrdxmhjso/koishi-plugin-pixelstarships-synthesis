@@ -40,7 +40,12 @@ const SynthesisCalculator = require("../src/SynthesisCalculator");
   // }
   // console.log(tc / k);
 
-  const t = SynthesisCalculator.showRoleInfo({names: '余烬女 粉红哥斯拉', diff: true})
+  // const t = SynthesisCalculator.showRoleInfo({names: '余烬女 粉红哥斯拉', diff: true})
+  const t = SynthesisCalculator.showRoleInfo({
+    names: '头部',
+    sort: '能力',
+    isSearch: true
+  })
   console.log(t);
   // const r = await SynthesisCalculator.marketList();
   // console.log(r)

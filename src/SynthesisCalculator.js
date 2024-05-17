@@ -536,20 +536,84 @@ const SynthesisCalculator = {
     'Invulnerability': '相位闪现'
   },
   GenderType: {'Female': '女', 'Male': '男', 'Unknown': '没有'},
-  EquipmentMask: ['头盔', '身体', '腿部', '武器', '饰品', '宠物'],
+  EquipmentMask: ['头部', '胸部', '腿部', '手部', '饰品', '宠物'],
+  sortKey: {
+    '生命': 'FinalHp',
+    '攻击': 'FinalAttack',
+    '维修': 'FinalRepair',
+    '能力': 'SpecialAbilityFinalArgument',
+    '导航': 'FinalPilot',
+    '科技': 'FinalScience',
+    '引擎': 'FinalEngine',
+    '武器': 'FinalWeapon',
+    '抗性': 'FireResistance',
+    '速度': 'RunSpeed',
+    '训练': 'TrainingCapacity',
+  },
+  /**
+   *
+   * @param {RoleInfo} roleInfo
+   * @return {string[]}
+   */
+  equipmentPosition(roleInfo) {
+    const ep = [];
+    const equipmentMask = Number(roleInfo.msg.EquipmentMask || 0).toString(2).split('').reverse();
+    equipmentMask.forEach((mask, i) => {
+      if (mask === `1`) {
+        ep.push(SynthesisCalculator.EquipmentMask[i])
+      }
+    });
+    return ep;
+  },
   /**
    *
    * @param {string} names
    * @param {boolean} diff
+   * @param {boolean} isSearch
+   * @param {string} [sort]
    * @return {string}
    */
-  showRoleInfo({names, diff = false}) {
-    const ids = SynthesisCalculator.namesToIds(names);
-    if (ids.length < 1) {
-      return "no result\n";
+  showRoleInfo({names = '', diff = false, isSearch = false, sort}) {
+    let ids;
+    let size;
+    if (!isSearch) {
+      ids = SynthesisCalculator.namesToIds(names);
+      size = ids.length;
+      if (size < 1) {
+        return "no result\n";
+      }
+    } else {
+      ids = [];
+      if (names) {
+        const search = names.replace(/\s+/g, ' ').split(/\s*[\s，。；,.;|]\s*/g);
+        for (let id in allJson) {
+          const roleInfo = allJson[id];
+          const specialAbility = SynthesisCalculator.SpecialAbilityType[roleInfo.msg.SpecialAbilityType];
+          const ep = SynthesisCalculator.equipmentPosition(roleInfo);
+          let match = true;
+          for (let s of search) {
+            if (!ep.includes(s) && specialAbility !== s) {
+              match = false;
+              break;
+            }
+          }
+          if (match) {
+            ids.push(id);
+          }
+        }
+      } else {
+        for (let id in allJson) {
+          ids.push(id);
+        }
+      }
+
+      size = Math.min(3, ids.length);
+    }
+    if (sort && SynthesisCalculator.sortKey[sort]) {
+      ids.sort((a, b) => allJson[b].msg[SynthesisCalculator.sortKey[sort]] - allJson[a].msg[SynthesisCalculator.sortKey[sort]])
     }
     let content = ''
-    for (let i = 0; i < ids.length; i++) {
+    for (let i = 0; i < size; i++) {
       const id = ids[i];
       const roleInfo = allJson[id];
       const msg = roleInfo.msg;
@@ -573,12 +637,7 @@ const SynthesisCalculator = {
       }
 
       content += ` 🌠 ${roleInfo.name}`;
-      const equipmentMask = Number(msg.EquipmentMask || 0).toString(2).split('').reverse();
-      equipmentMask.forEach((mask, i) => {
-        if (mask === `1`) {
-          content += ` ${SynthesisCalculator.EquipmentMask[i]}`
-        }
-      });
+      content += ' ' + SynthesisCalculator.equipmentPosition(roleInfo).join(' ');
       content += '\n';
 
       content += ` 技能 ${SynthesisCalculator.SpecialAbilityType[msg.SpecialAbilityType] || msg.SpecialAbilityType}`;

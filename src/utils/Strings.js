@@ -24,8 +24,13 @@ const Strings = {
     }
     return arr[t.length][s.length];
   },
+  /**
+   *
+   * @param {string} s
+   * @return {boolean}
+   */
   isEmpty(s) {
-    return !s || s.length === 0;
+    return !s && s !== 0;
   }
 }
 

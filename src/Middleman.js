@@ -68,7 +68,9 @@ const S = {
       session,
       getContent: () => SynthesisCalculator.showRoleInfo({
         names,
-        diff: options.diff
+        diff: options.diff,
+        isSearch: options.isSearch,
+        sort: options.sort,
       })
     })
   },
