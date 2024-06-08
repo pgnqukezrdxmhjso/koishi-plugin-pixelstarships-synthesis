@@ -38,6 +38,7 @@ export function apply(ctx: Context, config: Config) {
       }
     );
   ctx.command('pixelstarships.showRoleInfo <name:text>')
+    .option('targetLevel', '-t <targetLevel:number> maximum 7')
     .option('diff', '-d diff attribute')
     .option('isSearch', '-s search mode')
     .option('sort', '-o <sort:string> sort attribute')

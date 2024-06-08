@@ -568,12 +568,13 @@ const SynthesisCalculator = {
   /**
    *
    * @param {string} names
+   * @param {Level} targetLevel
    * @param {boolean} diff
    * @param {boolean} isSearch
    * @param {string} [sort]
    * @return {string}
    */
-  showRoleInfo({names = '', diff = false, isSearch = false, sort}) {
+  showRoleInfo({names = '', targetLevel, diff = false, isSearch = false, sort}) {
     let ids;
     let size;
     if (!isSearch) {
@@ -608,6 +609,10 @@ const SynthesisCalculator = {
       }
 
       size = Math.min(3, ids.length);
+    }
+    if (!Strings.isEmpty(targetLevel)) {
+      const idsMap = SynthesisCalculator.getLevelIdsMap()[targetLevel];
+      ids = ids.filter(id => idsMap.includes(id));
     }
     if (sort && SynthesisCalculator.sortKey[sort]) {
       ids.sort((a, b) => allJson[b].msg[SynthesisCalculator.sortKey[sort]] - allJson[a].msg[SynthesisCalculator.sortKey[sort]])
