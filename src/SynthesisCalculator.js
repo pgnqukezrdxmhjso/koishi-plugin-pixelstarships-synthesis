@@ -1,18 +1,26 @@
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const {XMLParser} = require("fast-xml-parser");
+const Big = require('big.js');
+const Strings = require("./utils/Strings");
+
+const basePath = path.join(path.parse(__filename).dir, "../");
+const allJsonPath = path.join(basePath, "./data/all.json");
+const levelJsonPath = path.join(basePath, "./data/level.json");
+const synthesisJsonPath = path.join(basePath, "./data/synthesis.json");
 /**
  * @type {RoleInfoMap}
  */
-const allJson = require("./data/all.json");
+let allJson = require(allJsonPath);
 /**
  * @type {LeveInfoMap}
  */
-const levelJson = require("./data/level.json");
+let levelJson = require(levelJsonPath);
 /**
  * @type {SynthesisInfoMap}
  */
-const synthesisJson = require("./data/synthesis.json");
-const Strings = require("./utils/Strings");
-const {XMLParser} = require("fast-xml-parser");
-const Big = require('big.js');
+let synthesisJson = require(synthesisJsonPath);
+
 
 const SynthesisCalculator = {
   levelIdsMap: null,
@@ -691,6 +699,38 @@ const SynthesisCalculator = {
     });
 
     return content;
+  },
+  async downloadData() {
+    const all = await (await fetch('https://ps.gamesun.cn/synthesis/json/all.json')).json();
+    const level = await (await fetch('https://ps.gamesun.cn/synthesis/json/level/level.json')).json();
+
+    const synthesis = {};
+    for (let id in all) {
+      const toListRes = await fetch(`https://ps.gamesun.cn/synthesis/json/to/${id}.json`);
+      if (!toListRes.ok) {
+        continue;
+      }
+      try {
+        let toList = (await toListRes.json())?.Prestige;
+        if (!toList) {
+          continue;
+        }
+        for (let i in toList) {
+          toList[i] = toList[i]._attributes
+        }
+        synthesis[id] = toList;
+      } catch (e) {
+      }
+    }
+    await fs.writeFile(allJsonPath, JSON.stringify(all));
+    await fs.writeFile(levelJsonPath, JSON.stringify(level));
+    await fs.writeFile(synthesisJsonPath, JSON.stringify(synthesis));
+    allJson = all;
+    levelJson = level;
+    synthesisJson = synthesis;
+    SynthesisCalculator.levelIdsMap = null;
+    SynthesisCalculator.nameMap = null;
+    SynthesisCalculator.nameRMap = null;
   }
 }
 

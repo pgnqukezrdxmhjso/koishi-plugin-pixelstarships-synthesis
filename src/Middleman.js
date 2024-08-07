@@ -82,5 +82,21 @@ const S = {
       getContent: () => SynthesisCalculator.marketList()
     });
   },
+  lastDownloadData: null,
+  downloadData({session}) {
+    if (S.lastDownloadData && Date.now() - S.lastDownloadData < 60 * 60 * 1000) {
+      session.send('can only be updated once within 1 hour');
+      return;
+    }
+    return S.calculateLock({
+      session,
+      getContent: async () => {
+        session.send('start download data');
+        await SynthesisCalculator.downloadData();
+        S.lastDownloadData = Date.now();
+        return 'download completed';
+      }
+    });
+  },
 }
 module.exports = S;

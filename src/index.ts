@@ -51,4 +51,9 @@ export function apply(ctx: Context, config: Config) {
         await Middleman.marketList(argv);
       }
     );
+  ctx.command('pixelstarships.downloadData')
+    .action(async (argv) => {
+        await Middleman.downloadData(argv);
+      }
+    );
 }
