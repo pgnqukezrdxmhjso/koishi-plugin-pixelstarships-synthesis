@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pixelstarships-synthesis",
   "description": "pixelstarships synthesis calculator",
-  "version": "0.0.71",
+  "version": "0.0.72",
   "contributors": [
     "pgnqukezrdxmhjso"
   ],
@@ -21,7 +21,7 @@
   "files": [
     "lib",
     "dist",
-    "data2"
+    "data"
   ],
   "license": "MIT",
   "keywords": [
