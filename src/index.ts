@@ -4,11 +4,13 @@ import Middleman from './Middleman.js'
 export const name = 'pixelstarships-synthesis'
 
 export interface Config {
-  messageDeleteTime: number
+  messageDeleteTime: number;
+  messagePacking: boolean;
 }
 
 export const Config: Schema<Config> = Schema.object({
   messageDeleteTime: Schema.number().description('message delete time(second,0 means no delete)').default(0),
+  messagePacking: Schema.boolean().default(false).description('message packing'),
 });
 
 
@@ -28,7 +30,7 @@ export function apply(ctx: Context, config: Config) {
     );
   ctx.command('pixelstarships.possibility <material:text>')
     .option('targetLevel', '-t <targetLevel:number> maximum 7', {fallback: 7})
-    .option('showMax', '-m <showMax:number> maximum 6', {fallback: 1})
+    .option('showMax', '-m <showMax:number> maximum 6', {fallback: 3})
     .action(async (argv, material) => {
         if (!material) {
           await argv.session.execute('pixelstarships.possibility -h');

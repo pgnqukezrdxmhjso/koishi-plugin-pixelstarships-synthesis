@@ -10,7 +10,10 @@ const S = {
     }
     try {
       S.calculating = true;
-      const content = await getContent();
+      let content = await getContent();
+      if (needMessageDelete && S.config?.messagePacking) {
+        content = `<message forward><message>${content}</message></message>`
+      }
       const [messageId] = await session.send(content);
       if (needMessageDelete && S.config?.messageDeleteTime > 0) {
         const timeoutId = setTimeout(() => {
