@@ -135,7 +135,7 @@ const SynthesisCalculator = {
     if (errors.length > 0) {
       throw {
         msg: "wrong name: " + errors.join(", "),
-        data: errors,
+        data: errors
       };
     }
     return ids;
@@ -189,8 +189,8 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {SynthesisRouteInfo} a
-   * @param {SynthesisRouteInfo} b
+   * @param {SynthesisRouteInfo || CalculateSynthesisLinkInfo} a
+   * @param {SynthesisRouteInfo || CalculateSynthesisLinkInfo} b
    * @return {number}
    */
   prioritySortFn(a, b) {
@@ -206,11 +206,41 @@ const SynthesisCalculator = {
     if (diff !== 0) {
       return diff;
     }
+    const depleteIdTotal = a.depleteIdTotal || b.depleteIdTotal;
+    if (depleteIdTotal) {
+      let aMax = 0;
+      let aTotal = 0;
+      a.depleteIds.forEach((id) => {
+        const t = depleteIdTotal[id] || 0;
+        aTotal += t;
+        if (t > aMax) {
+          aMax = t;
+        }
+      });
+      let bMax = 0;
+      let bTotal = 0;
+      b.depleteIds.forEach((id) => {
+        const t = depleteIdTotal[id] || 0;
+        bTotal += t;
+        if (t > bMax) {
+          bMax = t;
+        }
+      });
+      diff = aMax - bMax;
+      if (diff !== 0) {
+        return diff;
+      }
+      diff = aTotal - bTotal;
+      if (diff !== 0) {
+        return diff;
+      }
+    }
+
     return a.depleteIds.length - b.depleteIds.length;
   },
   /**
    *
-   * @param {SynthesisRouteInfo[]} list
+   * @param {(SynthesisRouteInfo || CalculateSynthesisLinkInfo)[]} list
    */
   prioritySort(list) {
     list.sort(SynthesisCalculator.prioritySortFn);
@@ -223,10 +253,10 @@ const SynthesisCalculator = {
    * @return {IdSynthesisLinksMap}
    */
   handleSynthesisLinks({
-    levelSynthesisInfosMap,
-    materialIds,
-    allowLack = true,
-  }) {
+                         levelSynthesisInfosMap,
+                         materialIds,
+                         allowLack = true
+                       }) {
     /**
      * @type {IdSynthesisLinksMap}
      */
@@ -239,8 +269,8 @@ const SynthesisCalculator = {
             level,
             k: materialIds.includes(id) ? 1 : 0,
             depth: 0,
-            materials: [id],
-          },
+            materials: [id]
+          }
         ];
       }
       return allSynthesisLinks[id];
@@ -259,7 +289,7 @@ const SynthesisCalculator = {
                 (synthesisLink2) => {
                   const materials = [
                     ...synthesisLink1.materials,
-                    ...synthesisLink2.materials,
+                    ...synthesisLink2.materials
                   ];
                   const mIds = [...materialIds];
                   const depleteIds = [];
@@ -294,11 +324,11 @@ const SynthesisCalculator = {
                       1 + synthesisLink1.depth / 2 + synthesisLink2.depth / 2,
                     synthesisLink1,
                     synthesisLink2,
-                    materials,
+                    materials
                   });
-                },
+                }
               );
-            },
+            }
           );
         });
         SynthesisCalculator.prioritySort(synthesisLinks);
@@ -326,11 +356,11 @@ const SynthesisCalculator = {
    * @returns {CalculateSynthesisLinkInfo}
    */
   calculateSynthesisLink({
-    allSynthesisLinks,
-    materialIds,
-    synthesisInfo,
-    allowLack = true,
-  }) {
+                           allSynthesisLinks,
+                           materialIds,
+                           synthesisInfo,
+                           allowLack = true
+                         }) {
     const id1 = synthesisInfo.CharacterDesignId1;
     const id2 = synthesisInfo.CharacterDesignId2;
     /**
@@ -338,7 +368,7 @@ const SynthesisCalculator = {
      */
     const calculateInfo = {
       k: -1,
-      depth: 0,
+      depth: 0
     };
     for (const synthesisLink1 of allSynthesisLinks[id1] || []) {
       let end = false;
@@ -368,7 +398,7 @@ const SynthesisCalculator = {
           SynthesisCalculator.prioritySortFn(calculateInfo, {
             k,
             depth,
-            depleteIds,
+            depleteIds
           }) > 0
         ) {
           calculateInfo.k = k;
@@ -402,10 +432,38 @@ const SynthesisCalculator = {
             } else {
               mIds.splice(mIds.indexOf(id), 1);
             }
-          }),
+          })
       );
     }
     return calculateInfo;
+  },
+  /**
+   *
+   * @param {LevelCalculateSynthesisLinkInfosMap} levelCalculateSynthesisLinkInfos
+   */
+  calculateDepleteTotalAndSort({
+                                 levelCalculateSynthesisLinkInfos
+                               }) {
+    /**
+     *
+     * @type DepleteIdTotal
+     */
+    const depleteIdTotal = {};
+    for (const level in levelCalculateSynthesisLinkInfos) {
+      for (const id in levelCalculateSynthesisLinkInfos[level]) {
+        levelCalculateSynthesisLinkInfos[level][id].forEach((calculateSynthesisLinkInfo) => {
+          calculateSynthesisLinkInfo.depleteIdTotal = depleteIdTotal;
+          calculateSynthesisLinkInfo.depleteIds?.forEach((id) => {
+            depleteIdTotal[id] = (depleteIdTotal[id] || 0) + 1;
+          });
+        });
+      }
+    }
+    for (const level in levelCalculateSynthesisLinkInfos) {
+      for (const id in levelCalculateSynthesisLinkInfos[level]) {
+        SynthesisCalculator.prioritySort(levelCalculateSynthesisLinkInfos[level][id]);
+      }
+    }
   },
   /**
    *
@@ -413,55 +471,65 @@ const SynthesisCalculator = {
    * @param {string} targetNames
    * @param {string} materialNames
    * @param {boolean} allowLack
+   * @param {number} showMax
    * @returns {null|LevelCalculateSynthesisLinkInfosMap}
    */
   calculate({
-    targetLevel = "7",
-    targetNames,
-    materialNames,
-    allowLack = true,
-  }) {
-    targetLevel = SynthesisCalculator.verifyLevel(targetLevel);
-    let targetIds;
-    if (targetNames?.length > 0) {
-      targetIds = SynthesisCalculator.namesToIds(targetNames);
-    } else {
-      targetIds = levelJson[targetLevel]?.map((levelInfo) => levelInfo.id);
-    }
-    if (!targetIds || targetIds.length < 1) {
-      return null;
-    }
-
+              targetLevel,
+              targetNames,
+              materialNames,
+              allowLack = true,
+              showMax = 10
+            }) {
     const materialIds = SynthesisCalculator.namesToIds(materialNames);
     if (materialIds.length < 2) {
       return null;
     }
 
+    let isTargetLevel = false;
+    let targetIds;
+    if (targetNames?.length > 0) {
+      targetIds = SynthesisCalculator.namesToIds(targetNames);
+    } else {
+      isTargetLevel = true;
+      targetIds = levelJson[
+        SynthesisCalculator.verifyLevel(targetLevel || "7")
+        ]?.map((levelInfo) => levelInfo.id);
+    }
+    if (!targetIds || targetIds.length < 1) {
+      return null;
+    }
+
+
     const possibilityLevelSynthesisInfosMap =
       SynthesisCalculator.calculatePossibility({
         materialIds,
-        allowLack,
+        allowLack
       });
 
     const allSynthesisLinks = SynthesisCalculator.handleSynthesisLinks({
       levelSynthesisInfosMap: possibilityLevelSynthesisInfosMap,
       materialIds,
-      allowLack,
+      allowLack
     });
 
+    /**
+     *
+     * @type LevelCalculateSynthesisLinkInfosMap
+     */
     const levelCalculateSynthesisLinkInfos = {};
     for (let targetId of targetIds) {
       const level = SynthesisCalculator.getIdLevel(targetId);
       const calculateSynthesisLinkInfos = [];
       (allowLack
-        ? possibilityLevelSynthesisInfosMap[level]?.[targetId]
-        : synthesisJson[targetId] || []
+          ? possibilityLevelSynthesisInfosMap[level]?.[targetId]
+          : synthesisJson[targetId] || []
       )?.forEach((synthesisInfo) => {
         const res = SynthesisCalculator.calculateSynthesisLink({
           allSynthesisLinks,
           materialIds,
           synthesisInfo,
-          allowLack,
+          allowLack
         });
         if (res && res.k >= (allowLack ? 0 : 2)) {
           calculateSynthesisLinkInfos.push(res);
@@ -471,13 +539,44 @@ const SynthesisCalculator = {
         if (!levelCalculateSynthesisLinkInfos[level]) {
           levelCalculateSynthesisLinkInfos[level] = {};
         }
-        SynthesisCalculator.prioritySort(calculateSynthesisLinkInfos);
         levelCalculateSynthesisLinkInfos[level][targetId] =
           calculateSynthesisLinkInfos;
       }
     }
-
-    return levelCalculateSynthesisLinkInfos;
+    if (Object.keys(levelCalculateSynthesisLinkInfos).length > 0) {
+      SynthesisCalculator.calculateDepleteTotalAndSort({ levelCalculateSynthesisLinkInfos });
+      let needRearrange = false;
+      for (const level in levelCalculateSynthesisLinkInfos) {
+        for (const id in levelCalculateSynthesisLinkInfos[level]) {
+          const calculateSynthesisLinkInfos = levelCalculateSynthesisLinkInfos[level][id];
+          if (calculateSynthesisLinkInfos.length <= showMax) {
+            continue;
+          }
+          needRearrange = true;
+          calculateSynthesisLinkInfos.length = showMax;
+        }
+      }
+      if (needRearrange) {
+        SynthesisCalculator.calculateDepleteTotalAndSort({ levelCalculateSynthesisLinkInfos });
+      }
+      return levelCalculateSynthesisLinkInfos;
+    }
+    if (isTargetLevel && !targetLevel) {
+      targetLevel = "1";
+      materialIds.forEach((id) => {
+        const level = SynthesisCalculator.getIdLevel(id);
+        if (level > targetLevel) {
+          targetLevel = level;
+        }
+      });
+      targetLevel++;
+      return SynthesisCalculator.calculate({
+        targetLevel,
+        materialNames,
+        allowLack
+      });
+    }
+    return {};
   },
   /**
    *
@@ -495,24 +594,26 @@ const SynthesisCalculator = {
   /**
    *
    * @param {SynthesisLink} synthesisLink
+   * @param {DepleteIdTotal} depleteIdTotal
    * @return {String}
    */
-  formatSynthesisLink2({ synthesisLink }) {
+  formatSynthesisLink2({ synthesisLink, depleteIdTotal }) {
     let content = allJson[synthesisLink.tId]?.name;
     if (synthesisLink.materials.length < 2) {
-      return content;
+      return content + `[${depleteIdTotal[synthesisLink.tId]}]`;
     }
     content += `(${synthesisLink.level - 1}`;
-    content += SynthesisCalculator.formatSynthesisLink({ synthesisLink });
+    content += SynthesisCalculator.formatSynthesisLink({ synthesisLink, depleteIdTotal });
     content += `${synthesisLink.level - 1})`;
     return content;
   },
   /**
    *
    * @param {SynthesisLink|CalculateSynthesisLinkInfo} synthesisLink
+   * @param {DepleteIdTotal} depleteIdTotal
    * @return {String}
    */
-  formatSynthesisLink({ synthesisLink }) {
+  formatSynthesisLink({ synthesisLink, depleteIdTotal }) {
     let synthesisLink1;
     let synthesisLink2;
     if (
@@ -528,10 +629,12 @@ const SynthesisCalculator = {
     let content = "";
     content += SynthesisCalculator.formatSynthesisLink2({
       synthesisLink: synthesisLink1,
+      depleteIdTotal
     });
     content += "✨";
     content += SynthesisCalculator.formatSynthesisLink2({
       synthesisLink: synthesisLink2,
+      depleteIdTotal
     });
     return content;
   },
@@ -542,10 +645,6 @@ const SynthesisCalculator = {
    * @returns {string}
    */
   format({ levelCalculateSynthesisLinkInfosMap, showMax = 10 }) {
-    if (showMax > 30) {
-      showMax = 30;
-    }
-
     const levels = Object.keys(levelCalculateSynthesisLinkInfosMap || {});
     if (levels.length < 1) {
       return "no result\n";
@@ -569,6 +668,7 @@ const SynthesisCalculator = {
           content += " 👪 ";
           content += SynthesisCalculator.formatSynthesisLink({
             synthesisLink: info,
+            depleteIdTotal: info.depleteIdTotal
           });
           if (info.lackIds?.length > 0) {
             content += `😡 ${info.lackIds.map((id) => allJson[id]?.name).join(", ")}`;
@@ -606,7 +706,7 @@ const SynthesisCalculator = {
     Qtarian: "卡塔利恩",
     "Lost Lovers": "失去恋人",
     "Joseon Traders": "朝鲜商人",
-    "Galactic Mariners": "银河水手队",
+    "Galactic Mariners": "银河水手队"
   },
   SpecialAbilityType: {
     DeductReload: "系统骇入",
@@ -623,22 +723,22 @@ const SynthesisCalculator = {
     Bloodlust: "血之渴望",
     SetFire: "纵火",
     ProtectRoom: "静电护盾",
-    Invulnerability: "相位闪现",
+    Invulnerability: "相位闪现"
   },
   GenderType: { Female: "女", Male: "男", Unknown: "没有" },
   EquipmentMask: ["头部", "胸部", "腿部", "手部", "饰品", "宠物"],
   sortKey: {
-    生命: "FinalHp",
-    攻击: "FinalAttack",
-    维修: "FinalRepair",
-    能力: "SpecialAbilityFinalArgument",
-    导航: "FinalPilot",
-    科技: "FinalScience",
-    引擎: "FinalEngine",
-    武器: "FinalWeapon",
-    抗性: "FireResistance",
-    速度: "RunSpeed",
-    训练: "TrainingCapacity",
+    "生命": "FinalHp",
+    "攻击": "FinalAttack",
+    "维修": "FinalRepair",
+    "能力": "SpecialAbilityFinalArgument",
+    "导航": "FinalPilot",
+    "科技": "FinalScience",
+    "引擎": "FinalEngine",
+    "武器": "FinalWeapon",
+    "抗性": "FireResistance",
+    "速度": "RunSpeed",
+    "训练": "TrainingCapacity"
   },
   /**
    *
@@ -669,13 +769,13 @@ const SynthesisCalculator = {
    * @return {string}
    */
   showRoleInfo({
-    names = "",
-    targetLevel,
-    diff = false,
-    isSearch = false,
-    sort,
-    showMax = 3,
-  }) {
+                 names = "",
+                 targetLevel,
+                 diff = false,
+                 isSearch = false,
+                 sort,
+                 showMax = 3
+               }) {
     let ids;
     let size;
     if (!isSearch) {
@@ -695,7 +795,7 @@ const SynthesisCalculator = {
           const specialAbility =
             SynthesisCalculator.SpecialAbilityType[
               roleInfo.msg.SpecialAbilityType
-            ];
+              ];
           const team = SynthesisCalculator.TeamType[roleInfo.msg.team] || "";
           const ep = SynthesisCalculator.equipmentPosition(roleInfo);
           let match = true;
@@ -727,7 +827,7 @@ const SynthesisCalculator = {
       ids.sort(
         (a, b) =>
           allJson[b].msg[SynthesisCalculator.sortKey[sort]] -
-          allJson[a].msg[SynthesisCalculator.sortKey[sort]],
+          allJson[a].msg[SynthesisCalculator.sortKey[sort]]
       );
     }
     let content = "";
@@ -783,12 +883,12 @@ const SynthesisCalculator = {
   },
   async marketList() {
     const res = await fetch(
-      "http://mobileapi.pixship.anjy.net/MessageService/ListActiveMarketplaceMessages5?itemSubType=None&rarity=None&currencyType=Unknown&itemDesignId=0&userId=0&accessToken=12345678-1234-1234-1234-123456789012",
+      "http://mobileapi.pixship.anjy.net/MessageService/ListActiveMarketplaceMessages5?itemSubType=None&rarity=None&currencyType=Unknown&itemDesignId=0&userId=0&accessToken=12345678-1234-1234-1234-123456789012"
     );
     const text = await res.text();
     const parser = new XMLParser({
       ignoreAttributes: false,
-      attributeNamePrefix: "",
+      attributeNamePrefix: ""
     });
     const json = parser.parse(text);
     const messages =
@@ -822,7 +922,7 @@ const SynthesisCalculator = {
     const synthesis = {};
     for (let id in all) {
       const toListRes = await fetch(
-        `https://ps.gamesun.cn/synthesis/json/to/${id}.json`,
+        `https://ps.gamesun.cn/synthesis/json/to/${id}.json`
       );
       if (!toListRes.ok) {
         continue;
@@ -831,11 +931,12 @@ const SynthesisCalculator = {
         let toList = (await toListRes.json())?.Prestige || [];
         toList = toList.map((item) => item._attributes);
         synthesis[id] = toList;
-      } catch (e) {}
+      } catch (e) {
+      }
     }
     for (let id in all) {
       const fromListRes = await fetch(
-        `https://ps.gamesun.cn/synthesis/json/from/${id}.json`,
+        `https://ps.gamesun.cn/synthesis/json/from/${id}.json`
       );
       if (!fromListRes.ok) {
         continue;
@@ -862,7 +963,8 @@ const SynthesisCalculator = {
           }
           toList.push(item);
         });
-      } catch (e) {}
+      } catch (e) {
+      }
     }
 
     try {
@@ -886,7 +988,8 @@ const SynthesisCalculator = {
           all[id].msg.team = team;
         });
       }
-    } catch (e) {}
+    } catch (e) {
+    }
 
     await fs.writeFile(allJsonPath, JSON.stringify(all));
     await fs.writeFile(levelJsonPath, JSON.stringify(level));
@@ -897,8 +1000,7 @@ const SynthesisCalculator = {
     SynthesisCalculator.levelIdsMap = null;
     SynthesisCalculator.nameMap = null;
     SynthesisCalculator.nameRMap = null;
-  },
+  }
 };
 
 module.exports = SynthesisCalculator;
-SynthesisCalculator.downloadData();

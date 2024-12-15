@@ -126,11 +126,16 @@
  */
 
 /**
+ * @typedef {Object.<Id,number>} DepleteIdTotal
+ */
+
+/**
  * @typedef {Object} CalculateSynthesisLinkInfo
  * @property {SynthesisLink} [synthesisLink1]
  * @property {SynthesisLink} [synthesisLink2]
  * @property {number} k
  * @property {number} depth
  * @property {Id[]} [depleteIds]
+ * @property {DepleteIdTotal} [depleteIdTotal]
  * @property {Id[]} [lackIds]
  */

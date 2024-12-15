@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-pixelstarships-synthesis",
   "description": "pixelstarships synthesis calculator",
-  "version": "0.0.77",
+  "version": "0.0.78",
   "contributors": [
     "pgnqukezrdxmhjso"
   ],
@@ -33,12 +33,12 @@
     "synthesis calculator"
   ],
   "peerDependencies": {
-    "koishi": "^4.18.0"
+    "koishi": "^4.18.2"
   },
   "dependencies": {
     "big.js": "^6.2.2",
     "fast-xml-parser": "^4.5.0",
-    "node-html-parser": "^6.1.13"
+    "node-html-parser": "^6.1.15-0"
   },
   "devDependencies": {
     "@types/big.js": "^6"

@@ -23,7 +23,7 @@ export function apply(ctx: Context, config: Config) {
 
   ctx
     .command("pixelstarships.synthesis <target> <material:text>")
-    .option("showMax", "-m <showMax:number> maximum 60", { fallback: 5 })
+    .option("showMax", "-m <showMax:number>", { fallback: 5 })
     .action(async (argv, target, material) => {
       if (!target || !material) {
         await argv.session.execute("pixelstarships.synthesis -h");
@@ -33,8 +33,8 @@ export function apply(ctx: Context, config: Config) {
     });
   ctx
     .command("pixelstarships.possibility <material:text>")
-    .option("targetLevel", "-t <targetLevel:number> maximum 7", { fallback: 7 })
-    .option("showMax", "-m <showMax:number> maximum 6", { fallback: 3 })
+    .option("targetLevel", "-t <targetLevel:number> maximum 7", )
+    .option("showMax", "-m <showMax:number>", { fallback: 5 })
     .action(async (argv, material) => {
       if (!material) {
         await argv.session.execute("pixelstarships.possibility -h");
@@ -48,7 +48,7 @@ export function apply(ctx: Context, config: Config) {
     .option("diff", "-d diff attribute")
     .option("isSearch", "-s search mode")
     .option("sort", "-o <sort:string> sort attribute")
-    .option("showMax", "-m <showMax:number> maximum 20", { fallback: 3 })
+    .option("showMax", "-m <showMax:number>", { fallback: 6 })
     .action(async (argv, name) => {
       await Middleman.showRoleInfo(argv, name);
     });
