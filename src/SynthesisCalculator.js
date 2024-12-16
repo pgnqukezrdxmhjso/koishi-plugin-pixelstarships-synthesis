@@ -524,7 +524,7 @@ const SynthesisCalculator = {
         });
         if (res && res.length > 0) {
           const target = res[0];
-          if (target.synthesisLinkInfos[0].k === 2) {
+          if (target.synthesisLinkInfos[0].k === 2 && targetIds.length > 1) {
             target.synthesisLinkInfos[0].depleteIds.forEach((id) => {
               materialIds.splice(materialIds.indexOf(id), 1);
             });
