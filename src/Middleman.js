@@ -1,4 +1,5 @@
 const SynthesisCalculator = require("./SynthesisCalculator.js");
+const sleep = async (item) => new Promise(resolve => setTimeout(resolve, item));
 const S = {
   calculating: false,
   config: null,
@@ -10,14 +11,28 @@ const S = {
     }
     try {
       S.calculating = true;
-      let content = await getContent();
+      const content = await getContent();
+      let msg = content;
       if (needMessageDelete && S.config?.messagePacking) {
-        content = `<message forward><message>${content}</message></message>`;
+        msg = `<message forward><message>${msg}</message></message>`;
       }
-      const [messageId] = await session.send(content);
-      if (needMessageDelete && S.config?.messageDeleteTime > 0) {
+      let messageIds = (await session.send(msg)) || [];
+      if (messageIds.length < 1 && content.includes("🌠")) {
+        const rows = content.split(/(?= 🌠)/);
+        if (rows.length > 10) {
+          while (rows.length > 1) {
+            msg = rows.splice(0, 10).join("");
+            if (needMessageDelete && S.config?.messagePacking) {
+              msg = `<message forward><message>${msg}</message></message>`;
+            }
+            messageIds.push(...((await session.send(msg)) || []));
+            await sleep(500);
+          }
+        }
+      }
+      if (needMessageDelete && S.config?.messageDeleteTime > 0 && messageIds.length > 0) {
         const timeoutId = setTimeout(() => {
-          session.bot.deleteMessage(session.channelId, messageId);
+          messageIds.forEach((messageId) => session.bot.deleteMessage(session.channelId, messageId));
           S.timeoutIds.splice(S.timeoutIds.indexOf(timeoutId), 1);
         }, S.config.messageDeleteTime * 1000);
         S.timeoutIds.push(timeoutId);
@@ -48,8 +63,9 @@ const S = {
           levelCalculateSynthesisLinkInfosMap: SynthesisCalculator.calculate({
             targetNames: target,
             materialNames: material,
-          }),
-        }),
+            showMax: options.showMax
+          })
+        })
     });
   },
   possibility({ session, options }, material) {
@@ -63,8 +79,9 @@ const S = {
             targetLevel: options.targetLevel,
             materialNames: material,
             allowLack: false,
-          }),
-        }),
+            showMax: options.showMax
+          })
+        })
     });
   },
   showRoleInfo({ session, options }, names) {
@@ -78,15 +95,15 @@ const S = {
           diff: options.diff,
           isSearch: options.isSearch,
           sort: options.sort,
-          showMax: options.showMax,
-        }),
+          showMax: options.showMax
+        })
     });
   },
   marketList({ session, options }) {
     return S.calculateLock({
       needMessageDelete: true,
       session,
-      getContent: () => SynthesisCalculator.marketList(),
+      getContent: () => SynthesisCalculator.marketList()
     });
   },
   lastDownloadData: null,
@@ -105,8 +122,8 @@ const S = {
         await SynthesisCalculator.downloadData();
         S.lastDownloadData = Date.now();
         return "download completed";
-      },
+      }
     });
-  },
+  }
 };
 module.exports = S;

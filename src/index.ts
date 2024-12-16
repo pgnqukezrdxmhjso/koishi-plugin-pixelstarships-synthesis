@@ -23,7 +23,7 @@ export function apply(ctx: Context, config: Config) {
 
   ctx
     .command("pixelstarships.synthesis <target> <material:text>")
-    .option("showMax", "-m <showMax:number>", { fallback: 5 })
+    .option("showMax", "-m <showMax:number>", { fallback: 10 })
     .action(async (argv, target, material) => {
       if (!target || !material) {
         await argv.session.execute("pixelstarships.synthesis -h");
@@ -48,7 +48,7 @@ export function apply(ctx: Context, config: Config) {
     .option("diff", "-d diff attribute")
     .option("isSearch", "-s search mode")
     .option("sort", "-o <sort:string> sort attribute")
-    .option("showMax", "-m <showMax:number>", { fallback: 6 })
+    .option("showMax", "-m <showMax:number>", { fallback: 5 })
     .action(async (argv, name) => {
       await Middleman.showRoleInfo(argv, name);
     });

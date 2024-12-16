@@ -451,6 +451,9 @@ const SynthesisCalculator = {
     const depleteIdTotal = {};
     for (const level in levelCalculateSynthesisLinkInfos) {
       for (const id in levelCalculateSynthesisLinkInfos[level]) {
+        if (id + "" === "114") {
+          continue;
+        }
         levelCalculateSynthesisLinkInfos[level][id].forEach((calculateSynthesisLinkInfo) => {
           calculateSynthesisLinkInfo.depleteIdTotal = depleteIdTotal;
           calculateSynthesisLinkInfo.depleteIds?.forEach((id) => {
@@ -467,8 +470,8 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {Level} targetLevel
-   * @param {string} targetNames
+   * @param {Level?} targetLevel
+   * @param {string?} targetNames
    * @param {string} materialNames
    * @param {boolean} allowLack
    * @param {number} showMax
@@ -600,7 +603,7 @@ const SynthesisCalculator = {
   formatSynthesisLink2({ synthesisLink, depleteIdTotal }) {
     let content = allJson[synthesisLink.tId]?.name;
     if (synthesisLink.materials.length < 2) {
-      return content + `[${depleteIdTotal[synthesisLink.tId]}]`;
+      return content + (depleteIdTotal ? `[${depleteIdTotal[synthesisLink.tId]}]` : "");
     }
     content += `(${synthesisLink.level - 1}`;
     content += SynthesisCalculator.formatSynthesisLink({ synthesisLink, depleteIdTotal });
