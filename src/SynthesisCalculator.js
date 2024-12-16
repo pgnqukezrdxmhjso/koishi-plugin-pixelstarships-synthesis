@@ -781,6 +781,9 @@ const SynthesisCalculator = {
                }) {
     let ids;
     let size;
+    if (names.includes("🌠")) {
+      names = names.match(/(?<=🌠\s*)[^\n\s]+/g)?.join(" ") || "";
+    }
     if (!isSearch) {
       ids = SynthesisCalculator.namesToIds(names);
       size = ids.length;
