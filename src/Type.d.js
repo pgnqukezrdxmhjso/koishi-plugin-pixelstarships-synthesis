@@ -103,9 +103,6 @@
  * @typedef {Object.<Level, Object.<Id, SynthesisInfo[]>>} LevelSynthesisInfosMap
  */
 
-/**
- * @typedef {Object.<Level, Object.<Id, CalculateSynthesisLinkInfo[]>>} LevelCalculateSynthesisLinkInfosMap
- */
 
 /**
  * @typedef {Object} SynthesisLink
@@ -123,6 +120,17 @@
 
 /**
  * @typedef {Object.<Id,SynthesisLink[]>} IdSynthesisLinksMap
+ */
+
+/**
+ * @typedef {CalculateInfo[]} CalculateInfos
+ */
+
+/**
+ * @typedef {Object} CalculateInfo
+ * @property {Id} tId
+ * @property {Level} level
+ * @property {CalculateSynthesisLinkInfo[]} synthesisLinkInfos
  */
 
 /**

@@ -60,7 +60,7 @@ const S = {
       getContent: () =>
         SynthesisCalculator.format({
           showMax: options.showMax,
-          levelCalculateSynthesisLinkInfosMap: SynthesisCalculator.calculate({
+          calculateInfos: SynthesisCalculator.calculate({
             targetNames: target,
             materialNames: material,
             showMax: options.showMax
@@ -75,7 +75,7 @@ const S = {
       getContent: () =>
         SynthesisCalculator.format({
           showMax: options.showMax,
-          levelCalculateSynthesisLinkInfosMap: SynthesisCalculator.calculate({
+          calculateInfos: SynthesisCalculator.calculate({
             targetLevel: options.targetLevel,
             materialNames: material,
             allowLack: false,

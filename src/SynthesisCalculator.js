@@ -439,34 +439,31 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {LevelCalculateSynthesisLinkInfosMap} levelCalculateSynthesisLinkInfos
+   * @param {CalculateInfos} calculateInfos
+   * @param {boolean} jumpOver114
    */
   calculateDepleteTotalAndSort({
-                                 levelCalculateSynthesisLinkInfos
+                                 calculateInfos,
+                                 jumpOver114
                                }) {
     /**
-     *
      * @type DepleteIdTotal
      */
     const depleteIdTotal = {};
-    for (const level in levelCalculateSynthesisLinkInfos) {
-      for (const id in levelCalculateSynthesisLinkInfos[level]) {
-        if (id + "" === "114") {
-          continue;
-        }
-        levelCalculateSynthesisLinkInfos[level][id].forEach((calculateSynthesisLinkInfo) => {
-          calculateSynthesisLinkInfo.depleteIdTotal = depleteIdTotal;
-          calculateSynthesisLinkInfo.depleteIds?.forEach((id) => {
-            depleteIdTotal[id] = (depleteIdTotal[id] || 0) + 1;
-          });
+    calculateInfos.forEach(calculateInfo => {
+      if (jumpOver114 && calculateInfo.tId + "" === "114") {
+        return;
+      }
+      calculateInfo.synthesisLinkInfos.forEach((calculateSynthesisLinkInfo) => {
+        calculateSynthesisLinkInfo.depleteIdTotal = depleteIdTotal;
+        calculateSynthesisLinkInfo.depleteIds?.forEach((id) => {
+          depleteIdTotal[id] = (depleteIdTotal[id] || 0) + 1;
         });
-      }
-    }
-    for (const level in levelCalculateSynthesisLinkInfos) {
-      for (const id in levelCalculateSynthesisLinkInfos[level]) {
-        SynthesisCalculator.prioritySort(levelCalculateSynthesisLinkInfos[level][id]);
-      }
-    }
+      });
+    });
+    calculateInfos.forEach(calculateInfo => {
+      SynthesisCalculator.prioritySort(calculateInfo.synthesisLinkInfos);
+    });
   },
   /**
    *
@@ -475,32 +472,72 @@ const SynthesisCalculator = {
    * @param {string} materialNames
    * @param {boolean} allowLack
    * @param {number} showMax
-   * @returns {null|LevelCalculateSynthesisLinkInfosMap}
+   * @param {boolean} targetNamesCalculating
+   * @param {Id[]?} targetIds
+   * @param {Id[]?} materialIds
+   * @returns {null|CalculateInfos}
    */
   calculate({
               targetLevel,
               targetNames,
               materialNames,
               allowLack = true,
-              showMax = 10
+              showMax = 10,
+              targetNamesCalculating = false,
+              targetIds,
+              materialIds
             }) {
-    const materialIds = SynthesisCalculator.namesToIds(materialNames);
+    if (!materialIds) {
+      materialIds = SynthesisCalculator.namesToIds(materialNames);
+    }
     if (materialIds.length < 2) {
       return null;
     }
 
-    let isTargetLevel = false;
-    let targetIds;
-    if (targetNames?.length > 0) {
-      targetIds = SynthesisCalculator.namesToIds(targetNames);
-    } else {
-      isTargetLevel = true;
-      targetIds = levelJson[
-        SynthesisCalculator.verifyLevel(targetLevel || "7")
-        ]?.map((levelInfo) => levelInfo.id);
+    const existTargetNames = targetNames?.length > 0;
+    if (!targetIds) {
+      if (existTargetNames) {
+        targetIds = SynthesisCalculator.namesToIds(targetNames);
+      } else {
+        targetIds = levelJson[
+          SynthesisCalculator.verifyLevel(targetLevel || "7")
+          ]?.map((levelInfo) => levelInfo.id);
+      }
     }
     if (!targetIds || targetIds.length < 1) {
       return null;
+    }
+
+    if (existTargetNames && targetIds.length > 1 && !targetNamesCalculating) {
+      /**
+       *
+       * @type CalculateInfos
+       */
+      const calculateInfos = [];
+      while (targetIds.length > 0) {
+        const res = SynthesisCalculator.calculate({
+          allowLack,
+          showMax,
+          targetNamesCalculating: true,
+          targetIds,
+          materialIds
+        });
+        if (res && res.length > 0) {
+          const target = res[0];
+          if (target.synthesisLinkInfos[0].k === 2) {
+            target.synthesisLinkInfos[0].depleteIds.forEach((id) => {
+              materialIds.splice(materialIds.indexOf(id), 1);
+            });
+            delete target.synthesisLinkInfos[0].depleteIdTotal;
+            target.synthesisLinkInfos.length = 1;
+            calculateInfos.push(target);
+          } else {
+            calculateInfos.push(target);
+          }
+        }
+        targetIds.shift();
+      }
+      return calculateInfos;
     }
 
 
@@ -518,9 +555,9 @@ const SynthesisCalculator = {
 
     /**
      *
-     * @type LevelCalculateSynthesisLinkInfosMap
+     * @type CalculateInfos
      */
-    const levelCalculateSynthesisLinkInfos = {};
+    const calculateInfos = [];
     for (let targetId of targetIds) {
       const level = SynthesisCalculator.getIdLevel(targetId);
       const calculateSynthesisLinkInfos = [];
@@ -539,32 +576,35 @@ const SynthesisCalculator = {
         }
       });
       if (calculateSynthesisLinkInfos.length > 0) {
-        if (!levelCalculateSynthesisLinkInfos[level]) {
-          levelCalculateSynthesisLinkInfos[level] = {};
-        }
-        levelCalculateSynthesisLinkInfos[level][targetId] =
-          calculateSynthesisLinkInfos;
+        calculateInfos.push({
+          tId: targetId,
+          level: level,
+          synthesisLinkInfos: calculateSynthesisLinkInfos
+        });
       }
     }
-    if (Object.keys(levelCalculateSynthesisLinkInfos).length > 0) {
-      SynthesisCalculator.calculateDepleteTotalAndSort({ levelCalculateSynthesisLinkInfos });
+    if (calculateInfos.length > 0) {
+      SynthesisCalculator.calculateDepleteTotalAndSort({
+        calculateInfos: calculateInfos,
+        jumpOver114: !existTargetNames
+      });
       let needRearrange = false;
-      for (const level in levelCalculateSynthesisLinkInfos) {
-        for (const id in levelCalculateSynthesisLinkInfos[level]) {
-          const calculateSynthesisLinkInfos = levelCalculateSynthesisLinkInfos[level][id];
-          if (calculateSynthesisLinkInfos.length <= showMax) {
-            continue;
-          }
-          needRearrange = true;
-          calculateSynthesisLinkInfos.length = showMax;
+      calculateInfos.forEach(calculateInfo => {
+        if (calculateInfo.synthesisLinkInfos.length <= showMax) {
+          return;
         }
-      }
+        needRearrange = true;
+        calculateInfo.synthesisLinkInfos.length = showMax;
+      });
       if (needRearrange) {
-        SynthesisCalculator.calculateDepleteTotalAndSort({ levelCalculateSynthesisLinkInfos });
+        SynthesisCalculator.calculateDepleteTotalAndSort({
+          calculateInfos: calculateInfos,
+          jumpOver114: !existTargetNames
+        });
       }
-      return levelCalculateSynthesisLinkInfos;
+      return calculateInfos;
     }
-    if (isTargetLevel && !targetLevel) {
+    if (!existTargetNames && !targetLevel) {
       targetLevel = "1";
       materialIds.forEach((id) => {
         const level = SynthesisCalculator.getIdLevel(id);
@@ -575,11 +615,11 @@ const SynthesisCalculator = {
       targetLevel++;
       return SynthesisCalculator.calculate({
         targetLevel,
-        materialNames,
+        materialIds,
         allowLack
       });
     }
-    return {};
+    return [];
   },
   /**
    *
@@ -603,7 +643,7 @@ const SynthesisCalculator = {
   formatSynthesisLink2({ synthesisLink, depleteIdTotal }) {
     let content = allJson[synthesisLink.tId]?.name;
     if (synthesisLink.materials.length < 2) {
-      return content + (depleteIdTotal ? `[${depleteIdTotal[synthesisLink.tId]}]` : "");
+      return content + (depleteIdTotal ? `[${depleteIdTotal[synthesisLink.tId] || -1}]` : "");
     }
     content += `(${synthesisLink.level - 1}`;
     content += SynthesisCalculator.formatSynthesisLink({ synthesisLink, depleteIdTotal });
@@ -643,44 +683,32 @@ const SynthesisCalculator = {
   },
   /**
    *
-   * @param {LevelCalculateSynthesisLinkInfosMap} levelCalculateSynthesisLinkInfosMap
+   * @param {CalculateInfos} calculateInfos
    * @param {number} showMax
    * @returns {string}
    */
-  format({ levelCalculateSynthesisLinkInfosMap, showMax = 10 }) {
-    const levels = Object.keys(levelCalculateSynthesisLinkInfosMap || {});
-    if (levels.length < 1) {
-      return "no result\n";
-    }
-    levels.sort((a, b) => b - a);
-
+  format({ calculateInfos, showMax = 10 }) {
     let content = "";
-    for (let level of levels) {
-      const calculateSynthesisLinkInfosMap =
-        levelCalculateSynthesisLinkInfosMap[level];
-      for (let id in calculateSynthesisLinkInfosMap) {
-        const calculateSynthesisLinkInfos = calculateSynthesisLinkInfosMap[id];
-        content += ` 🌠 ${allJson[id]?.name}`;
-        content += showMax === 1 ? "" : "\n";
-        for (
-          let i = 0;
-          i < calculateSynthesisLinkInfos.length && i < showMax;
-          i++
-        ) {
-          const info = calculateSynthesisLinkInfos[i];
-          content += " 👪 ";
-          content += SynthesisCalculator.formatSynthesisLink({
-            synthesisLink: info,
-            depleteIdTotal: info.depleteIdTotal
-          });
-          if (info.lackIds?.length > 0) {
-            content += `😡 ${info.lackIds.map((id) => allJson[id]?.name).join(", ")}`;
-          }
-          content += `\n`;
+    calculateInfos.forEach(calculateInfo => {
+      content += ` 🌠 ${allJson[calculateInfo.tId]?.name}`;
+      content += showMax === 1 ? "" : "\n";
+      for (
+        let i = 0;
+        i < calculateInfo.synthesisLinkInfos.length && i < showMax;
+        i++
+      ) {
+        const info = calculateInfo.synthesisLinkInfos[i];
+        content += " 👪 ";
+        content += SynthesisCalculator.formatSynthesisLink({
+          synthesisLink: info,
+          depleteIdTotal: info.depleteIdTotal
+        });
+        if (info.lackIds?.length > 0) {
+          content += `😡 ${info.lackIds.map((id) => allJson[id]?.name).join(", ")}`;
         }
+        content += `\n`;
       }
-    }
-
+    });
     return content;
   },
   TeamType: {
