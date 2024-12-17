@@ -100,6 +100,9 @@ const SynthesisCalculator = {
     const errors = [];
     const ids = [];
     for (const name of nameList) {
+      if (!name || name.length === 0) {
+        continue;
+      }
       let id = nameMap[name]?.id;
       if (id) {
         ids.push(id);
@@ -212,37 +215,11 @@ const SynthesisCalculator = {
     }
     const depleteIdTotal = a.depleteIdTotal || b.depleteIdTotal;
     if (depleteIdTotal) {
-      const aDepleteIdTotal = [];
-      const bDepleteIdTotal = [];
       let aTotal = 0;
       let bTotal = 0;
-      a.depleteIds.forEach((id) => {
-        const t = depleteIdTotal[id] || 0;
-        aTotal += t;
-        if (!aDepleteIdTotal.includes(t)) {
-          aDepleteIdTotal.push(t);
-        }
-      });
-      b.depleteIds.forEach((id) => {
-        const t = depleteIdTotal[id] || 0;
-        bTotal += t;
-        if (!bDepleteIdTotal.includes(t)) {
-          bDepleteIdTotal.push(t);
-        }
-      });
-      aDepleteIdTotal.sort((a, b) => b - a);
-      bDepleteIdTotal.sort((a, b) => b - a);
-      for (let i = 0; i < aDepleteIdTotal.length; i++) {
-        if (aDepleteIdTotal[0] !== bDepleteIdTotal[0]) {
-          break;
-        }
-        aDepleteIdTotal.shift();
-        bDepleteIdTotal.shift();
-      }
-      diff = (aDepleteIdTotal[0] || 0) - (bDepleteIdTotal[0] || 0);
-      if (diff !== 0) {
-        return diff;
-      }
+      a.depleteIds.forEach((id) => aTotal += depleteIdTotal[id] || 0);
+      b.depleteIds.forEach((id) => bTotal += depleteIdTotal[id] || 0);
+
       diff = aTotal - bTotal;
       if (diff !== 0) {
         return diff;
@@ -508,9 +485,18 @@ const SynthesisCalculator = {
     }
 
     const existTargetNames = !!targetIds || targetNames?.length > 0;
+    let lastToPossibility = false;
     if (!targetIds) {
       if (existTargetNames) {
-        targetIds = SynthesisCalculator.namesToIds(targetNames);
+        try {
+          targetIds = SynthesisCalculator.namesToIds(targetNames);
+        } catch (e) {
+          if (!e?.data?.includes?.("*")) {
+            throw e;
+          }
+          lastToPossibility = true;
+          targetIds = SynthesisCalculator.namesToIds(targetNames.replace(/\*\s*$/g, ""));
+        }
       } else {
         targetIds = levelJson[
           SynthesisCalculator.verifyLevel(targetLevel || "7")
@@ -537,7 +523,7 @@ const SynthesisCalculator = {
         });
         if (res && res.length > 0) {
           const target = res[0];
-          if (target.synthesisLinkInfos[0].k === 2 && targetIds.length > 1) {
+          if (target.synthesisLinkInfos[0].k === 2 && (targetIds.length > 1 || lastToPossibility)) {
             target.synthesisLinkInfos[0].depleteIds.forEach((id) => {
               materialIds.splice(materialIds.indexOf(id), 1);
             });
@@ -547,6 +533,14 @@ const SynthesisCalculator = {
           } else {
             calculateInfos.push(target);
           }
+        }
+        if (targetIds.length === 1 && lastToPossibility) {
+          calculateInfos.push(...(
+            SynthesisCalculator.calculate({
+              materialIds: materialIds,
+              allowLack: false
+            }) || []
+          ));
         }
         targetIds.shift();
       }
