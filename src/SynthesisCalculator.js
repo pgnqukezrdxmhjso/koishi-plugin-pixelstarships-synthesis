@@ -198,7 +198,11 @@ const SynthesisCalculator = {
     if (diff !== 0) {
       return diff;
     }
-    diff = a.depth - b.depth;
+    if (!a.lackIds?.length && !b.lackIds?.length) {
+      diff = a.depth - b.depth;
+    } else {
+      diff = b.depth - a.depth;
+    }
     if (diff !== 0) {
       return diff;
     }
@@ -208,25 +212,34 @@ const SynthesisCalculator = {
     }
     const depleteIdTotal = a.depleteIdTotal || b.depleteIdTotal;
     if (depleteIdTotal) {
-      let aMax = 0;
+      const aDepleteIdTotal = [];
+      const bDepleteIdTotal = [];
       let aTotal = 0;
+      let bTotal = 0;
       a.depleteIds.forEach((id) => {
         const t = depleteIdTotal[id] || 0;
         aTotal += t;
-        if (t > aMax) {
-          aMax = t;
+        if (!aDepleteIdTotal.includes(t)) {
+          aDepleteIdTotal.push(t);
         }
       });
-      let bMax = 0;
-      let bTotal = 0;
       b.depleteIds.forEach((id) => {
         const t = depleteIdTotal[id] || 0;
         bTotal += t;
-        if (t > bMax) {
-          bMax = t;
+        if (!bDepleteIdTotal.includes(t)) {
+          bDepleteIdTotal.push(t);
         }
       });
-      diff = aMax - bMax;
+      aDepleteIdTotal.sort((a, b) => b - a);
+      bDepleteIdTotal.sort((a, b) => b - a);
+      for (let i = 0; i < aDepleteIdTotal.length; i++) {
+        if (aDepleteIdTotal[0] !== bDepleteIdTotal[0]) {
+          break;
+        }
+        aDepleteIdTotal.shift();
+        bDepleteIdTotal.shift();
+      }
+      diff = (aDepleteIdTotal[0] || 0) - (bDepleteIdTotal[0] || 0);
       if (diff !== 0) {
         return diff;
       }
@@ -494,7 +507,7 @@ const SynthesisCalculator = {
       return null;
     }
 
-    const existTargetNames = targetNames?.length > 0;
+    const existTargetNames = !!targetIds || targetNames?.length > 0;
     if (!targetIds) {
       if (existTargetNames) {
         targetIds = SynthesisCalculator.namesToIds(targetNames);
@@ -619,7 +632,7 @@ const SynthesisCalculator = {
         allowLack
       });
     }
-    return [];
+    return null;
   },
   /**
    *
@@ -688,6 +701,9 @@ const SynthesisCalculator = {
    * @returns {string}
    */
   format({ calculateInfos, showMax = 10 }) {
+    if (!calculateInfos || calculateInfos.length < 1) {
+      return "no result\n";
+    }
     let content = "";
     calculateInfos.forEach(calculateInfo => {
       content += ` 🌠 ${allJson[calculateInfo.tId]?.name}`;
@@ -704,7 +720,7 @@ const SynthesisCalculator = {
           depleteIdTotal: info.depleteIdTotal
         });
         if (info.lackIds?.length > 0) {
-          content += `😡 ${info.lackIds.map((id) => allJson[id]?.name).join(", ")}`;
+          content += `🈚 ${info.lackIds.map((id) => allJson[id]?.name).join(", ")}`;
         }
         content += `\n`;
       }
