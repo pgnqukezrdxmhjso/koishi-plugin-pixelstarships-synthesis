@@ -86,7 +86,7 @@ const S = {
   },
   showRoleInfo({ session, options }, names) {
     return S.calculateLock({
-      needMessageDelete: names.includes("🌠") || options.showMax > 5,
+      needMessageDelete: names?.includes?.("🌠") || options.showMax > 5,
       session,
       getContent: () =>
         SynthesisCalculator.showRoleInfo({
