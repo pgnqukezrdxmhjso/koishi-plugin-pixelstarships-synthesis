@@ -147,3 +147,7 @@
  * @property {DepleteIdTotal} [depleteIdTotal]
  * @property {Id[]} [lackIds]
  */
+
+/**
+ * @typedef {Object.<Id,number>} MaterialIdMap
+ */

@@ -138,7 +138,7 @@ const SynthesisCalculator = {
     if (errors.length > 0) {
       throw {
         msg: "wrong name: " + errors.join(", "),
-        data: errors
+        data: errors,
       };
     }
     return ids;
@@ -203,6 +203,10 @@ const SynthesisCalculator = {
     }
     if (!a.lackIds?.length && !b.lackIds?.length) {
       diff = a.depth - b.depth;
+    } else if (!a.lackIds?.length) {
+      diff = -1;
+    } else if (!b.lackIds?.length) {
+      diff = 1;
     } else {
       diff = b.depth - a.depth;
     }
@@ -217,8 +221,8 @@ const SynthesisCalculator = {
     if (depleteIdTotal) {
       let aTotal = 0;
       let bTotal = 0;
-      a.depleteIds.forEach((id) => aTotal += depleteIdTotal[id] || 0);
-      b.depleteIds.forEach((id) => bTotal += depleteIdTotal[id] || 0);
+      a.depleteIds.forEach((id) => (aTotal += depleteIdTotal[id] || 0));
+      b.depleteIds.forEach((id) => (bTotal += depleteIdTotal[id] || 0));
 
       diff = aTotal - bTotal;
       if (diff !== 0) {
@@ -243,24 +247,34 @@ const SynthesisCalculator = {
    * @return {IdSynthesisLinksMap}
    */
   handleSynthesisLinks({
-                         levelSynthesisInfosMap,
-                         materialIds,
-                         allowLack = true
-                       }) {
+    levelSynthesisInfosMap,
+    materialIds,
+    allowLack = true,
+  }) {
+    /**
+     * @type {MaterialIdMap}
+     */
+    const materialIdMap = {};
+    materialIds.forEach(
+      (id) => (materialIdMap[id] = (materialIdMap[id] || 0) + 1),
+    );
     /**
      * @type {IdSynthesisLinksMap}
      */
     const allSynthesisLinks = {};
     const getOrDefaultLink = ({ id, level }) => {
       if (!allSynthesisLinks[id]) {
+        const k = materialIdMap[id] ? 1 : 0;
         allSynthesisLinks[id] = [
           {
             tId: id,
             level,
-            k: materialIds.includes(id) ? 1 : 0,
+            k,
             depth: 0,
-            materials: [id]
-          }
+            materials: [id],
+            depleteIds: k === 1 ? [id] : [],
+            lackIds: k === 1 ? [] : [id],
+          },
         ];
       }
       return allSynthesisLinks[id];
@@ -271,55 +285,53 @@ const SynthesisCalculator = {
       for (let id in levelSynthesisInfosMap[level]) {
         const synthesisLinks = getOrDefaultLink({ id, level });
         levelSynthesisInfosMap[level][id]?.forEach((synthesisInfo) => {
-          const id1 = synthesisInfo.CharacterDesignId1;
-          const id2 = synthesisInfo.CharacterDesignId2;
-          getOrDefaultLink({ id: id1, level: nextLevel }).forEach(
-            (synthesisLink1) => {
-              getOrDefaultLink({ id: id2, level: nextLevel }).forEach(
-                (synthesisLink2) => {
-                  const materials = [
-                    ...synthesisLink1.materials,
-                    ...synthesisLink2.materials
-                  ];
-                  const mIds = [...materialIds];
-                  const depleteIds = [];
+          getOrDefaultLink({
+            id: synthesisInfo.CharacterDesignId1,
+            level: nextLevel,
+          }).forEach((synthesisLink1) => {
+            getOrDefaultLink({
+              id: synthesisInfo.CharacterDesignId2,
+              level: nextLevel,
+            }).forEach((synthesisLink2) => {
+              const materials = [
+                ...synthesisLink1.materials,
+                ...synthesisLink2.materials,
+              ];
+              const mIdMap = { ...materialIdMap };
+              const depleteIds = [];
+              const lackIds = [];
 
-                  const k =
-                    materials.reduce((k, mId) => {
-                      if (!mIds.includes(mId)) {
-                        return k;
-                      }
-                      depleteIds.push(mId);
-                      mIds.splice(mIds.indexOf(mId), 1);
-                      return k + 1;
-                    }, 0) / materials.length;
-
-                  if (k <= 0 || (!allowLack && k < 1)) {
-                    return;
+              const k =
+                materials.reduce((k, mId) => {
+                  if (!(mId in mIdMap)) {
+                    lackIds.push(id);
+                    return k;
                   }
+                  depleteIds.push(mId);
+                  mIdMap[mId] -= 1;
+                  if (mIdMap[mId] < 1) {
+                    delete mIdMap[mId];
+                  }
+                  return k + 1;
+                }, 0) / materials.length;
 
-                  const lackIds = [];
-                  materials.forEach((id) => {
-                    if (!materialIds.includes(id)) {
-                      lackIds.push(id);
-                    }
-                  });
-                  synthesisLinks.push({
-                    tId: id,
-                    level,
-                    k,
-                    depleteIds,
-                    lackIds,
-                    depth:
-                      1 + synthesisLink1.depth / 2 + synthesisLink2.depth / 2,
-                    synthesisLink1,
-                    synthesisLink2,
-                    materials
-                  });
-                }
-              );
-            }
-          );
+              if (k <= 0 || (!allowLack && k < 1)) {
+                return;
+              }
+
+              synthesisLinks.push({
+                tId: id,
+                level,
+                k,
+                depleteIds,
+                lackIds,
+                depth: 1 + synthesisLink1.depth / 2 + synthesisLink2.depth / 2,
+                synthesisLink1,
+                synthesisLink2,
+                materials,
+              });
+            });
+          });
         });
         SynthesisCalculator.prioritySort(synthesisLinks);
       }
@@ -340,38 +352,43 @@ const SynthesisCalculator = {
   /**
    *
    * @param {IdSynthesisLinksMap} allSynthesisLinks
-   * @param {Id[]} materialIds
+   * @param {MaterialIdMap} materialIdMap
    * @param {SynthesisInfo} synthesisInfo
    * @param {boolean} allowLack
    * @returns {CalculateSynthesisLinkInfo}
    */
   calculateSynthesisLink({
-                           allSynthesisLinks,
-                           materialIds,
-                           synthesisInfo,
-                           allowLack = true
-                         }) {
-    const id1 = synthesisInfo.CharacterDesignId1;
-    const id2 = synthesisInfo.CharacterDesignId2;
+    allSynthesisLinks,
+    materialIdMap,
+    synthesisInfo,
+    allowLack = true,
+  }) {
     /**
      * @type {CalculateSynthesisLinkInfo}
      */
     const calculateInfo = {
       k: -1,
-      depth: 0
+      depth: 0,
     };
-    for (const synthesisLink1 of allSynthesisLinks[id1] || []) {
+    for (const synthesisLink1 of allSynthesisLinks[
+      synthesisInfo.CharacterDesignId1
+    ] || []) {
       let end = false;
-      for (const synthesisLink2 of allSynthesisLinks[id2] || []) {
-        const mIds = [...materialIds];
+      for (const synthesisLink2 of allSynthesisLinks[
+        synthesisInfo.CharacterDesignId2
+      ] || []) {
+        const mIdMap = { ...materialIdMap };
         const depleteIds = [];
 
         const _reduce = (k, mId) => {
-          if (!mIds.includes(mId)) {
+          if (!(mId in mIdMap)) {
             return k;
           }
           depleteIds.push(mId);
-          mIds.splice(mIds.indexOf(mId), 1);
+          mIdMap[mId] -= 1;
+          if (mIdMap[mId] < 1) {
+            delete mIdMap[mId];
+          }
           return k + 1;
         };
 
@@ -388,7 +405,7 @@ const SynthesisCalculator = {
           SynthesisCalculator.prioritySortFn(calculateInfo, {
             k,
             depth,
-            depleteIds
+            depleteIds,
           }) > 0
         ) {
           calculateInfo.k = k;
@@ -412,17 +429,20 @@ const SynthesisCalculator = {
     }
 
     if (calculateInfo.k < 2) {
-      const mIds = [...materialIds];
+      const mIdMap = { ...materialIdMap };
       calculateInfo.lackIds = [];
       [calculateInfo.synthesisLink1, calculateInfo.synthesisLink2].forEach(
         (synthesisLink) =>
           synthesisLink.materials.forEach((id) => {
-            if (!mIds.includes(id)) {
+            if (!(id in mIdMap)) {
               calculateInfo.lackIds.push(id);
             } else {
-              mIds.splice(mIds.indexOf(id), 1);
+              mIdMap[id] -= 1;
+              if (mIdMap[id] < 1) {
+                delete mIdMap[id];
+              }
             }
-          })
+          }),
       );
     }
     return calculateInfo;
@@ -432,15 +452,12 @@ const SynthesisCalculator = {
    * @param {CalculateInfos} calculateInfos
    * @param {boolean} jumpOver114
    */
-  calculateDepleteTotalAndSort({
-                                 calculateInfos,
-                                 jumpOver114
-                               }) {
+  calculateDepleteTotalAndSort({ calculateInfos, jumpOver114 }) {
     /**
      * @type DepleteIdTotal
      */
     const depleteIdTotal = {};
-    calculateInfos.forEach(calculateInfo => {
+    calculateInfos.forEach((calculateInfo) => {
       if (jumpOver114 && calculateInfo.tId + "" === "114") {
         return;
       }
@@ -451,7 +468,7 @@ const SynthesisCalculator = {
         });
       });
     });
-    calculateInfos.forEach(calculateInfo => {
+    calculateInfos.forEach((calculateInfo) => {
       SynthesisCalculator.prioritySort(calculateInfo.synthesisLinkInfos);
     });
   },
@@ -468,15 +485,15 @@ const SynthesisCalculator = {
    * @returns {null|CalculateInfos}
    */
   calculate({
-              targetLevel,
-              targetNames,
-              materialNames,
-              allowLack = true,
-              showMax = 10,
-              targetNamesCalculating = false,
-              targetIds,
-              materialIds
-            }) {
+    targetLevel,
+    targetNames,
+    materialNames,
+    allowLack = true,
+    showMax = 10,
+    targetNamesCalculating = false,
+    targetIds,
+    materialIds,
+  }) {
     if (!materialIds) {
       materialIds = SynthesisCalculator.namesToIds(materialNames);
     }
@@ -495,12 +512,14 @@ const SynthesisCalculator = {
             throw e;
           }
           lastToPossibility = true;
-          targetIds = SynthesisCalculator.namesToIds(targetNames.replace(/\*\s*$/g, ""));
+          targetIds = SynthesisCalculator.namesToIds(
+            targetNames.replace(/\*\s*$/g, ""),
+          );
         }
       } else {
         targetIds = levelJson[
           SynthesisCalculator.verifyLevel(targetLevel || "7")
-          ]?.map((levelInfo) => levelInfo.id);
+        ]?.map((levelInfo) => levelInfo.id);
       }
     }
     if (!targetIds || targetIds.length < 1) {
@@ -519,11 +538,14 @@ const SynthesisCalculator = {
           showMax,
           targetNamesCalculating: true,
           targetIds,
-          materialIds
+          materialIds,
         });
         if (res && res.length > 0) {
           const target = res[0];
-          if (target.synthesisLinkInfos[0].k === 2 && (targetIds.length > 1 || lastToPossibility)) {
+          if (
+            target.synthesisLinkInfos[0].k === 2 &&
+            (targetIds.length > 1 || lastToPossibility)
+          ) {
             target.synthesisLinkInfos[0].depleteIds.forEach((id) => {
               materialIds.splice(materialIds.indexOf(id), 1);
             });
@@ -535,31 +557,36 @@ const SynthesisCalculator = {
           }
         }
         if (targetIds.length === 1 && lastToPossibility) {
-          calculateInfos.push(...(
-            SynthesisCalculator.calculate({
+          calculateInfos.push(
+            ...(SynthesisCalculator.calculate({
               materialIds: materialIds,
-              allowLack: false
-            }) || []
-          ));
+              allowLack: false,
+              showMax,
+            }) || []),
+          );
         }
         targetIds.shift();
       }
       return calculateInfos;
     }
 
-
     const possibilityLevelSynthesisInfosMap =
       SynthesisCalculator.calculatePossibility({
         materialIds,
-        allowLack
+        allowLack,
       });
-
     const allSynthesisLinks = SynthesisCalculator.handleSynthesisLinks({
       levelSynthesisInfosMap: possibilityLevelSynthesisInfosMap,
       materialIds,
-      allowLack
+      allowLack,
     });
-
+    /**
+     * @type {MaterialIdMap}
+     */
+    const materialIdMap = {};
+    materialIds.forEach(
+      (id) => (materialIdMap[id] = (materialIdMap[id] || 0) + 1),
+    );
     /**
      *
      * @type CalculateInfos
@@ -569,14 +596,14 @@ const SynthesisCalculator = {
       const level = SynthesisCalculator.getIdLevel(targetId);
       const calculateSynthesisLinkInfos = [];
       (allowLack
-          ? possibilityLevelSynthesisInfosMap[level]?.[targetId]
-          : synthesisJson[targetId] || []
+        ? possibilityLevelSynthesisInfosMap[level]?.[targetId]
+        : synthesisJson[targetId] || []
       )?.forEach((synthesisInfo) => {
         const res = SynthesisCalculator.calculateSynthesisLink({
           allSynthesisLinks,
-          materialIds,
+          materialIdMap,
           synthesisInfo,
-          allowLack
+          allowLack,
         });
         if (res && res.k >= (allowLack ? 0 : 2)) {
           calculateSynthesisLinkInfos.push(res);
@@ -586,17 +613,17 @@ const SynthesisCalculator = {
         calculateInfos.push({
           tId: targetId,
           level: level,
-          synthesisLinkInfos: calculateSynthesisLinkInfos
+          synthesisLinkInfos: calculateSynthesisLinkInfos,
         });
       }
     }
     if (calculateInfos.length > 0) {
       SynthesisCalculator.calculateDepleteTotalAndSort({
         calculateInfos: calculateInfos,
-        jumpOver114: !existTargetNames
+        jumpOver114: !existTargetNames,
       });
       let needRearrange = false;
-      calculateInfos.forEach(calculateInfo => {
+      calculateInfos.forEach((calculateInfo) => {
         if (calculateInfo.synthesisLinkInfos.length <= showMax) {
           return;
         }
@@ -606,7 +633,7 @@ const SynthesisCalculator = {
       if (needRearrange) {
         SynthesisCalculator.calculateDepleteTotalAndSort({
           calculateInfos: calculateInfos,
-          jumpOver114: !existTargetNames
+          jumpOver114: !existTargetNames,
         });
       }
       return calculateInfos;
@@ -623,7 +650,7 @@ const SynthesisCalculator = {
       return SynthesisCalculator.calculate({
         targetLevel,
         materialIds,
-        allowLack
+        allowLack,
       });
     }
     return null;
@@ -650,10 +677,16 @@ const SynthesisCalculator = {
   formatSynthesisLink2({ synthesisLink, depleteIdTotal }) {
     let content = allJson[synthesisLink.tId]?.name;
     if (synthesisLink.materials.length < 2) {
-      return content + (depleteIdTotal ? `[${depleteIdTotal[synthesisLink.tId] || -1}]` : "");
+      return (
+        content +
+        (depleteIdTotal ? `[${depleteIdTotal[synthesisLink.tId] || -1}]` : "")
+      );
     }
     content += `(${synthesisLink.level - 1}`;
-    content += SynthesisCalculator.formatSynthesisLink({ synthesisLink, depleteIdTotal });
+    content += SynthesisCalculator.formatSynthesisLink({
+      synthesisLink,
+      depleteIdTotal,
+    });
     content += `${synthesisLink.level - 1})`;
     return content;
   },
@@ -679,12 +712,12 @@ const SynthesisCalculator = {
     let content = "";
     content += SynthesisCalculator.formatSynthesisLink2({
       synthesisLink: synthesisLink1,
-      depleteIdTotal
+      depleteIdTotal,
     });
     content += "✨";
     content += SynthesisCalculator.formatSynthesisLink2({
       synthesisLink: synthesisLink2,
-      depleteIdTotal
+      depleteIdTotal,
     });
     return content;
   },
@@ -699,7 +732,7 @@ const SynthesisCalculator = {
       return "no result\n";
     }
     let content = "";
-    calculateInfos.forEach(calculateInfo => {
+    calculateInfos.forEach((calculateInfo) => {
       content += ` 🌠 ${allJson[calculateInfo.tId]?.name}`;
       content += showMax === 1 ? "" : "\n";
       for (
@@ -711,7 +744,7 @@ const SynthesisCalculator = {
         content += " 👪 ";
         content += SynthesisCalculator.formatSynthesisLink({
           synthesisLink: info,
-          depleteIdTotal: info.depleteIdTotal
+          depleteIdTotal: info.depleteIdTotal,
         });
         if (info.lackIds?.length > 0) {
           content += `🈚 ${info.lackIds.map((id) => allJson[id]?.name).join(", ")}`;
@@ -747,7 +780,7 @@ const SynthesisCalculator = {
     Qtarian: "卡塔利恩",
     "Lost Lovers": "失去恋人",
     "Joseon Traders": "朝鲜商人",
-    "Galactic Mariners": "银河水手队"
+    "Galactic Mariners": "银河水手队",
   },
   SpecialAbilityType: {
     DeductReload: "系统骇入",
@@ -764,22 +797,22 @@ const SynthesisCalculator = {
     Bloodlust: "血之渴望",
     SetFire: "纵火",
     ProtectRoom: "静电护盾",
-    Invulnerability: "相位闪现"
+    Invulnerability: "相位闪现",
   },
   GenderType: { Female: "女", Male: "男", Unknown: "没有" },
   EquipmentMask: ["头部", "胸部", "腿部", "手部", "饰品", "宠物"],
   sortKey: {
-    "生命": "FinalHp",
-    "攻击": "FinalAttack",
-    "维修": "FinalRepair",
-    "能力": "SpecialAbilityFinalArgument",
-    "导航": "FinalPilot",
-    "科技": "FinalScience",
-    "引擎": "FinalEngine",
-    "武器": "FinalWeapon",
-    "抗性": "FireResistance",
-    "速度": "RunSpeed",
-    "训练": "TrainingCapacity"
+    生命: "FinalHp",
+    攻击: "FinalAttack",
+    维修: "FinalRepair",
+    能力: "SpecialAbilityFinalArgument",
+    导航: "FinalPilot",
+    科技: "FinalScience",
+    引擎: "FinalEngine",
+    武器: "FinalWeapon",
+    抗性: "FireResistance",
+    速度: "RunSpeed",
+    训练: "TrainingCapacity",
   },
   /**
    *
@@ -810,13 +843,13 @@ const SynthesisCalculator = {
    * @return {string}
    */
   showRoleInfo({
-                 names = "",
-                 targetLevel,
-                 diff = false,
-                 isSearch = false,
-                 sort,
-                 showMax = 3
-               }) {
+    names = "",
+    targetLevel,
+    diff = false,
+    isSearch = false,
+    sort,
+    showMax = 3,
+  }) {
     let ids;
     let size;
     if (names.includes("🌠")) {
@@ -839,7 +872,7 @@ const SynthesisCalculator = {
           const specialAbility =
             SynthesisCalculator.SpecialAbilityType[
               roleInfo.msg.SpecialAbilityType
-              ];
+            ];
           const team = SynthesisCalculator.TeamType[roleInfo.msg.team] || "";
           const ep = SynthesisCalculator.equipmentPosition(roleInfo);
           let match = true;
@@ -871,7 +904,7 @@ const SynthesisCalculator = {
       ids.sort(
         (a, b) =>
           allJson[b].msg[SynthesisCalculator.sortKey[sort]] -
-          allJson[a].msg[SynthesisCalculator.sortKey[sort]]
+          allJson[a].msg[SynthesisCalculator.sortKey[sort]],
       );
     }
     let content = "";
@@ -927,12 +960,12 @@ const SynthesisCalculator = {
   },
   async marketList() {
     const res = await fetch(
-      "http://mobileapi.pixship.anjy.net/MessageService/ListActiveMarketplaceMessages5?itemSubType=None&rarity=None&currencyType=Unknown&itemDesignId=0&userId=0&accessToken=12345678-1234-1234-1234-123456789012"
+      "http://mobileapi.pixship.anjy.net/MessageService/ListActiveMarketplaceMessages5?itemSubType=None&rarity=None&currencyType=Unknown&itemDesignId=0&userId=0&accessToken=12345678-1234-1234-1234-123456789012",
     );
     const text = await res.text();
     const parser = new XMLParser({
       ignoreAttributes: false,
-      attributeNamePrefix: ""
+      attributeNamePrefix: "",
     });
     const json = parser.parse(text);
     const messages =
@@ -966,7 +999,7 @@ const SynthesisCalculator = {
     const synthesis = {};
     for (let id in all) {
       const toListRes = await fetch(
-        `https://ps.gamesun.cn/synthesis/json/to/${id}.json`
+        `https://ps.gamesun.cn/synthesis/json/to/${id}.json`,
       );
       if (!toListRes.ok) {
         continue;
@@ -975,12 +1008,11 @@ const SynthesisCalculator = {
         let toList = (await toListRes.json())?.Prestige || [];
         toList = toList.map((item) => item._attributes);
         synthesis[id] = toList;
-      } catch (e) {
-      }
+      } catch (e) {}
     }
     for (let id in all) {
       const fromListRes = await fetch(
-        `https://ps.gamesun.cn/synthesis/json/from/${id}.json`
+        `https://ps.gamesun.cn/synthesis/json/from/${id}.json`,
       );
       if (!fromListRes.ok) {
         continue;
@@ -1007,8 +1039,7 @@ const SynthesisCalculator = {
           }
           toList.push(item);
         });
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     try {
@@ -1032,8 +1063,7 @@ const SynthesisCalculator = {
           all[id].msg.team = team;
         });
       }
-    } catch (e) {
-    }
+    } catch (e) {}
 
     await fs.writeFile(allJsonPath, JSON.stringify(all));
     await fs.writeFile(levelJsonPath, JSON.stringify(level));
@@ -1044,7 +1074,7 @@ const SynthesisCalculator = {
     SynthesisCalculator.levelIdsMap = null;
     SynthesisCalculator.nameMap = null;
     SynthesisCalculator.nameRMap = null;
-  }
+  },
 };
 
 module.exports = SynthesisCalculator;
