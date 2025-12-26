@@ -1,5 +1,6 @@
 const SynthesisCalculator = require("./SynthesisCalculator.js");
-const sleep = async (item) => new Promise(resolve => setTimeout(resolve, item));
+const sleep = async (item) =>
+  new Promise((resolve) => setTimeout(resolve, item));
 const S = {
   calculating: false,
   config: null,
@@ -30,9 +31,15 @@ const S = {
           }
         }
       }
-      if (needMessageDelete && S.config?.messageDeleteTime > 0 && messageIds.length > 0) {
+      if (
+        needMessageDelete &&
+        S.config?.messageDeleteTime > 0 &&
+        messageIds.length > 0
+      ) {
         const timeoutId = setTimeout(() => {
-          messageIds.forEach((messageId) => session.bot.deleteMessage(session.channelId, messageId));
+          messageIds.forEach((messageId) =>
+            session.bot.deleteMessage(session.channelId, messageId),
+          );
           S.timeoutIds.splice(S.timeoutIds.indexOf(timeoutId), 1);
         }, S.config.messageDeleteTime * 1000);
         S.timeoutIds.push(timeoutId);
@@ -63,9 +70,9 @@ const S = {
           calculateInfos: SynthesisCalculator.calculate({
             targetNames: target,
             materialNames: material,
-            showMax: options.showMax
-          })
-        })
+            showMax: options.showMax,
+          }),
+        }),
     });
   },
   possibility({ session, options }, material) {
@@ -79,9 +86,9 @@ const S = {
             targetLevel: options.targetLevel,
             materialNames: material,
             allowLack: false,
-            showMax: options.showMax
-          })
-        })
+            showMax: options.showMax,
+          }),
+        }),
     });
   },
   showRoleInfo({ session, options }, names) {
@@ -95,15 +102,29 @@ const S = {
           diff: options.diff,
           isSearch: options.isSearch,
           sort: options.sort,
-          showMax: options.showMax
-        })
+          showMax: options.showMax,
+        }),
+    });
+  },
+  synthesisTable({ session, options }, names) {
+    return S.calculateLock({
+      needMessageDelete: true,
+      session,
+      getContent: () =>
+        SynthesisCalculator.format({
+          showMax: 99999,
+          calculateInfos: SynthesisCalculator.synthesisTable({
+            names,
+            showMax: options.showMax,
+          }),
+        }),
     });
   },
   marketList({ session, options }) {
     return S.calculateLock({
       needMessageDelete: true,
       session,
-      getContent: () => SynthesisCalculator.marketList()
+      getContent: () => SynthesisCalculator.marketList(),
     });
   },
   lastDownloadData: null,
@@ -122,8 +143,8 @@ const S = {
         await SynthesisCalculator.downloadData();
         S.lastDownloadData = Date.now();
         return "download completed";
-      }
+      },
     });
-  }
+  },
 };
 module.exports = S;

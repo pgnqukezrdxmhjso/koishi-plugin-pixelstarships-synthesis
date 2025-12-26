@@ -700,14 +700,14 @@ const SynthesisCalculator = {
     let synthesisLink1;
     let synthesisLink2;
     if (
-      (synthesisLink.synthesisLink1?.depth || 0) <
+      (synthesisLink.synthesisLink1?.depth || 0) >
       (synthesisLink.synthesisLink2?.depth || 0)
     ) {
-      synthesisLink1 = synthesisLink.synthesisLink1;
-      synthesisLink2 = synthesisLink.synthesisLink2;
-    } else {
       synthesisLink1 = synthesisLink.synthesisLink2;
       synthesisLink2 = synthesisLink.synthesisLink1;
+    } else {
+      synthesisLink1 = synthesisLink.synthesisLink1;
+      synthesisLink2 = synthesisLink.synthesisLink2;
     }
     let content = "";
     content += SynthesisCalculator.formatSynthesisLink2({
@@ -957,6 +957,61 @@ const SynthesisCalculator = {
     }
 
     return content;
+  },
+  /**
+   *
+   * @param {string} names
+   * @param {number} showMax
+   * @return {CalculateInfos|string}
+   */
+  synthesisTable({
+    names,
+    showMax = 1
+  }) {
+    const ids = SynthesisCalculator.namesToIds(names);
+    if (ids.length < 1) {
+      return "no result\n";
+    }
+    /**
+     * @type {CalculateInfos}
+     */
+    const calculateInfos = [];
+    for (let i = 0; i < ids.length && i < showMax; i++) {
+      const id = ids[i];
+      const synthesis = synthesisJson[id];
+      /**
+       *
+       * @type {CalculateInfo}
+       */
+      const calculateInfo = {};
+      calculateInfo.tId = id;
+      calculateInfo.synthesisLinkInfos = [];
+      calculateInfos.push(calculateInfo);
+      if (!synthesis) {
+        continue;
+      }
+      for (const info of synthesis) {
+        calculateInfo.synthesisLinkInfos.push({
+          k: 1,
+          depth: 0,
+          synthesisLink1: {
+            tId: info.CharacterDesignId1,
+            level: SynthesisCalculator.getIdLevel(info.CharacterDesignId1),
+            k: 1,
+            materials: [info.CharacterDesignId1],
+            depth: 1
+          },
+          synthesisLink2: {
+            tId: info.CharacterDesignId2,
+            level: SynthesisCalculator.getIdLevel(info.CharacterDesignId2),
+            k: 1,
+            materials: [info.CharacterDesignId2],
+            depth: 1
+          }
+        });
+      }
+    }
+    return calculateInfos;
   },
   async marketList() {
     const res = await fetch(

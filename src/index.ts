@@ -52,6 +52,12 @@ export function apply(ctx: Context, config: Config) {
     .action(async (argv, name) => {
       await Middleman.showRoleInfo(argv, name);
     });
+  ctx
+    .command("pixelstarships.synthesisTable <name:text>")
+    .option("showMax", "-m <showMax:number>", { fallback: 1 })
+    .action(async (argv, name) => {
+      await Middleman.synthesisTable(argv, name);
+    });
   ctx.command("pixelstarships.marketList").action(async (argv) => {
     await Middleman.marketList(argv);
   });
