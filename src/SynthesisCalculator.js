@@ -811,8 +811,9 @@ const SynthesisCalculator = {
     引擎: "FinalEngine",
     武器: "FinalWeapon",
     抗性: "FireResistance",
-    速度: "RunSpeed",
     训练: "TrainingCapacity",
+    速度: "RunSpeed",
+    速度2: "WalkingSpeed",
   },
   /**
    *
@@ -901,11 +902,22 @@ const SynthesisCalculator = {
       ids = ids.filter((id) => idsMap.includes(id));
     }
     if (sort && SynthesisCalculator.sortKey[sort]) {
-      ids.sort(
-        (a, b) =>
+      ids.sort((a, b) => {
+        let d =
           allJson[b].msg[SynthesisCalculator.sortKey[sort]] -
-          allJson[a].msg[SynthesisCalculator.sortKey[sort]],
-      );
+          allJson[a].msg[SynthesisCalculator.sortKey[sort]];
+        if (d === 0 || sort === "速度") {
+          d =
+            allJson[b].msg[SynthesisCalculator.sortKey["速度2"]] -
+            allJson[a].msg[SynthesisCalculator.sortKey["速度2"]];
+        }
+        if (d === 0) {
+          d =
+            allJson[b].msg[SynthesisCalculator.sortKey["训练"]] -
+            allJson[a].msg[SynthesisCalculator.sortKey["训练"]];
+        }
+        return d;
+      });
     }
     let content = "";
     for (let i = 0; i < size; i++) {
@@ -964,10 +976,7 @@ const SynthesisCalculator = {
    * @param {number} showMax
    * @return {CalculateInfos|string}
    */
-  synthesisTable({
-    names,
-    showMax = 1
-  }) {
+  synthesisTable({ names, showMax = 1 }) {
     const ids = SynthesisCalculator.namesToIds(names);
     if (ids.length < 1) {
       return "no result\n";
@@ -999,15 +1008,15 @@ const SynthesisCalculator = {
             level: SynthesisCalculator.getIdLevel(info.CharacterDesignId1),
             k: 1,
             materials: [info.CharacterDesignId1],
-            depth: 1
+            depth: 1,
           },
           synthesisLink2: {
             tId: info.CharacterDesignId2,
             level: SynthesisCalculator.getIdLevel(info.CharacterDesignId2),
             k: 1,
             materials: [info.CharacterDesignId2],
-            depth: 1
-          }
+            depth: 1,
+          },
         });
       }
     }
@@ -1030,7 +1039,7 @@ const SynthesisCalculator = {
     }
     let content = "";
     messages.forEach((message) => {
-      content += message.Message.replace("在卖 ", "");
+      content += message.Message.replace("Selling ", "");
       content += " ";
       content += message.ActivityArgument.replace("starbux", "票")
         .replace("gas", "油")

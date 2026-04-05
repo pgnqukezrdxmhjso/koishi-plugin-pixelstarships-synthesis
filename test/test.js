@@ -1,6 +1,5 @@
 const SynthesisCalculator = require("../src/SynthesisCalculator");
 (async () => {
-
   let k = 1;
   let tc = 0;
 
@@ -40,15 +39,19 @@ const SynthesisCalculator = require("../src/SynthesisCalculator");
   // }
   // console.log(tc / k);
 
-  // const t = SynthesisCalculator.showRoleInfo({names: '余烬女 粉红哥斯拉', diff: true})
   // const t = SynthesisCalculator.showRoleInfo({
-  //   names: '头部',
-  //   sort: '能力',
+  //   names: "余烬女 粉红哥斯拉",
+  //   diff: true,
+  // });
+  // const t = SynthesisCalculator.showRoleInfo({
+  //   // names: '头部',
+  //   sort: '速度',
   //   isSearch: true
   // })
   // console.log(t);
-  // const r = await SynthesisCalculator.marketList();
-  // console.log(r)
+
+  const r = await SynthesisCalculator.marketList();
+  console.log(r)
 
   // await SynthesisCalculator.downloadData();
 
@@ -63,16 +66,15 @@ const SynthesisCalculator = require("../src/SynthesisCalculator");
   // );
   // console.timeEnd("5");
 
-  console.time("5");
-  console.log(
-    SynthesisCalculator.format({
-      calculateInfos: SynthesisCalculator.synthesisTable({
-        names: "白银剑圣, 银河",
-        showMax: 99999
-      }),
-      showMax: 99999
-    })
-  );
-  console.timeEnd("5");
-
+  // console.time("5");
+  // console.log(
+  //   SynthesisCalculator.format({
+  //     calculateInfos: SynthesisCalculator.synthesisTable({
+  //       names: "白银剑圣, 银河",
+  //       showMax: 99999
+  //     }),
+  //     showMax: 99999
+  //   })
+  // );
+  // console.timeEnd("5");
 })();
